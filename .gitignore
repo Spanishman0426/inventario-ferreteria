@@ -69,3 +69,6 @@ desktop.ini
 
 # --- Claude Code (configuración local) ---
 .claude/settings.local.json
+
+# --- Backend: keystore HTTPS de desarrollo ---
+backend/certs/

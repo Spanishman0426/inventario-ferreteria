@@ -1,0 +1,7 @@
+# Nombre: .gitattributes
+# Descripción: Finales de línea de los scripts del Maven Wrapper.
+# Fecha de creación: 2026-10-20
+# Última actualización: 2026-10-20
+# Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
+/mvnw text eol=lf
+*.cmd text eol=crlf

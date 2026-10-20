@@ -70,7 +70,9 @@ Esta sección se completa en cada fase del proyecto.
 ### Requisitos previos
 
 - PostgreSQL 16 o superior (recomendado 18) con `psql` y `createdb` en el PATH.
-- Las demás herramientas (JDK 21, Node.js, k6) se indicarán en la fase correspondiente.
+- JDK 21 (`java` y `keytool` en el PATH, o `JAVA_HOME` definido). Maven no hace falta: se usa el Maven Wrapper.
+- Docker Desktop en ejecución para las pruebas del backend (Testcontainers levanta `postgres:18`).
+- Las demás herramientas (Node.js, k6) se indicarán en la fase correspondiente.
 
 ### Base de datos
 
@@ -93,7 +95,79 @@ El resumen final de `03` debe informar 79 pruebas y 0 fallas.
 
 ### Backend
 
-Pendiente: se completa en la fase de backend.
+API REST en Spring Boot 4 (Java 21). Flyway crea el esquema al arrancar: `V1__esquema_inicial.sql`
+(copia de `database/01`) y `V2__reportes.sql` (copia de `database/04`); no hace falta ejecutar esos
+scripts a mano en la base del backend.
+
+**Perfil dev** (el que se usa si no se indica otro). Desde la raíz del repositorio:
+
+1. Crear la base vacía de desarrollo:
+
+   ```bash
+   createdb -U postgres ferreteria_dev
+   ```
+
+2. Copiar las variables de entorno y poner los valores reales (el archivo `backend/.env` no se sube a Git):
+
+   ```powershell
+   Copy-Item backend\.env.example backend\.env      # Windows
+   ```
+
+   ```bash
+   cp backend/.env.example backend/.env             # Linux / macOS
+   ```
+
+   Variables: `DB_URL`, `DB_USER`, `DB_PASSWORD` y `SSL_KEYSTORE_PASSWORD` (mínimo 6 caracteres).
+   Una variable definida en el sistema tiene prioridad sobre `backend/.env`.
+
+3. Generar el certificado HTTPS autofirmado en `backend/certs/` (ignorado por Git):
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts\generar-certificado-dev.ps1   # Windows
+   ```
+
+   ```bash
+   sh scripts/generar-certificado-dev.sh                                           # Linux / macOS
+   ```
+
+   Con `-Forzar` (o `--forzar`) se reemplaza un keystore existente.
+
+4. Arrancar el backend:
+
+   ```powershell
+   cd backend; .\mvnw.cmd spring-boot:run     # Windows
+   ```
+
+   ```bash
+   cd backend && ./mvnw spring-boot:run       # Linux / macOS
+   ```
+
+5. Comprobar que responde (el navegador advertirá del certificado autofirmado; es normal en dev):
+
+   - Salud: <https://localhost:8443/actuator/health> → `{"status":"UP"}`
+   - Documentación OpenAPI: <https://localhost:8443/swagger-ui.html>
+
+   Cualquier otra ruta responde 401 en formato Problem Details hasta que se implemente el inicio de sesión.
+
+**Pruebas y verificación** (requiere Docker en ejecución):
+
+```powershell
+cd backend; .\mvnw.cmd verify     # Windows
+```
+
+```bash
+cd backend && ./mvnw verify       # Linux / macOS
+```
+
+Ejecuta las pruebas contra PostgreSQL 18 en un contenedor con los datos de prueba
+(`src/test/resources/db/testdata/V100__datos_prueba.sql`, copia de `database/02`), genera el Javadoc
+en `backend/target/reports/apidocs/` y el informe de cobertura en `backend/target/site/jacoco/index.html`.
+
+Para probar la API sin instalar PostgreSQL: `.\mvnw.cmd spring-boot:test-run` arranca la aplicación con
+una base efímera en Docker y los datos de prueba (perfil test, HTTP en el puerto 8080).
+
+**Perfil prod**: se activa con `SPRING_PROFILES_ACTIVE=prod`; toma `DB_URL`, `DB_USER`, `DB_PASSWORD` y
+`PORT` de las variables de entorno y sirve HTTP detrás del proxy TLS de la plataforma (envía HSTS).
 
 ### Frontend
 
