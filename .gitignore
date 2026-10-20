@@ -1,0 +1,71 @@
+# Nombre: .gitignore
+# Descripción: Archivos y carpetas que Git no debe versionar (compilados, dependencias,
+#              configuraciones locales de IDE, variables de entorno y certificados).
+# Fecha de creación: 2026-10-20
+# Última actualización: 2026-10-20
+# Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
+
+# --- Java / Maven ---
+target/
+build/
+*.class
+*.log
+hs_err_pid*
+replay_pid*
+.mvn/wrapper/maven-wrapper.jar
+
+# --- Node / Vite ---
+node_modules/
+dist/
+coverage/
+.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Playwright ---
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# --- k6 ---
+load-tests/results/
+
+# --- Python (database/oraculo.py) ---
+__pycache__/
+*.pyc
+.venv/
+
+# --- IDEs ---
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.settings/
+.project
+.classpath
+.factorypath
+*.swp
+
+# --- Sistema operativo ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Variables de entorno (solo se versiona .env.example) ---
+.env
+.env.*
+!.env.example
+
+# --- Certificados y llaves ---
+*.p12
+*.jks
+*.pem
+*.key
+*.pfx
+*.crt
+
+# --- Claude Code (configuración local) ---
+.claude/settings.local.json
