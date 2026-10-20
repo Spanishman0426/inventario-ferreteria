@@ -235,8 +235,8 @@ psql -U postgres -d ferreteria -f 03_pruebas_base_datos.sql
 | Fecha | Ejecutó | Archivo | Resultado | Observaciones |
 | --- | --- | --- | --- | --- |
 | 2026-10-20 | Juan Pablo | 01\_esquema\_inventario\_ferreteria.sql | COMMIT; verificación 6.3 correcta | — |
-| Pendiente | Juan Pablo | 02\_datos\_prueba.sql | — | — |
-| Pendiente | Juan Pablo | 04\_consultas\_reportes.sql | — | — |
-| Pendiente | Juan Pablo | 03\_pruebas\_base\_datos.sql | Esperado: 79 pruebas, 0 fallas | — |
+| 2026-10-20 | Juan Pablo | 02\_datos\_prueba.sql | COMMIT | — |
+| 2026-10-20 | Juan Pablo | 04\_consultas\_reportes.sql | COMMIT | — |
+| 2026-10-20 | Juan Pablo | 03\_pruebas\_base\_datos.sql | 79 pruebas, 79 OK, 0 fallas | Criterio de éxito cumplido |
 
 Si alguna prueba falla, el detalle muestra lo obtenido y lo esperado; con esa salida se determina si el error está en el esquema, en los datos o en la prueba, se corrige y se registra aquí.
