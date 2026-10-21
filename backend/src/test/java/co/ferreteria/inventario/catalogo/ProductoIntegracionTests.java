@@ -282,7 +282,7 @@ class ProductoIntegracionTests extends PruebaIntegracionApi {
 	}
 
 	@Test
-	@DisplayName("[RF-CFG-001] DELETE es borrado lógico: 204, el producto queda INACTIVO y consultable; repetirlo no audita de nuevo")
+	@DisplayName("[CA-RF-CFG-001-3] DELETE es borrado lógico: 204, el producto queda INACTIVO y consultable; repetirlo no audita de nuevo")
 	void borradoLogico() throws Exception {
 		long id = idDe(crear(jefe, peticion(nombreNuevo("Serrucho")).build()));
 

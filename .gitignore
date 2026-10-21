@@ -34,8 +34,13 @@ playwright/.cache/
 e2e/playwright/reportes/
 e2e/selenium/reportes/
 
-# --- k6 ---
-load-tests/results/
+# --- k6 (la carpeta se conserva con .gitkeep porque k6 no crea carpetas al guardar el resumen) ---
+load-tests/results/*
+!load-tests/results/.gitkeep
+
+# --- Reportes generados (JUnit del frontend y criterios de aceptación) ---
+frontend/reportes/
+reportes/
 
 # --- Python (database/oraculo.py) ---
 __pycache__/

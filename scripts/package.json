@@ -1,0 +1,18 @@
+{
+  "name": "inventario-ferreteria-scripts",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Scripts de apoyo: casos de prueba desde el catálogo de criterios y reporte de cumplimiento de criterios de aceptación.",
+  "author": "Juan Pablo Artunduaga Pérez (generado con Claude Code)",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "casos": "node casos-de-prueba.mjs",
+    "criterios": "node criterios.mjs"
+  },
+  "dependencies": {
+    "yaml": "2.9.1"
+  }
+}
