@@ -1,6 +1,7 @@
 /**
  * Nombre: MigracionesFlywayTests.java
- * Descripción: Prueba de contexto que verifica que Flyway aplicó V1 (esquema), V2 (reportes) y V100 (datos).
+ * Descripción: Prueba de contexto que verifica que Flyway aplicó V1 (esquema), V2 (reportes), V3 (auditoría)
+ *              y V100 (datos).
  * Fecha de creación: 2026-10-20
  * Última actualización: 2026-10-20
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
@@ -32,12 +33,12 @@ class MigracionesFlywayTests {
 	private JdbcTemplate jdbc;
 
 	@Test
-	@DisplayName("Flyway aplicó con éxito V1, V2 y los datos de prueba V100, en ese orden")
+	@DisplayName("Flyway aplicó con éxito V1, V2, V3 y los datos de prueba V100, en ese orden")
 	void flywayAplicoLasMigraciones() {
 		List<String> versiones = jdbc.queryForList(
 				"SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL ORDER BY installed_rank",
 				String.class);
-		assertThat(versiones).containsExactly("1", "2", "100");
+		assertThat(versiones).containsExactly("1", "2", "3", "100");
 
 		Integer fallidas = jdbc.queryForObject(
 				"SELECT count(*) FROM flyway_schema_history WHERE NOT success", Integer.class);

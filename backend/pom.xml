@@ -2,7 +2,7 @@
 <!--
   Nombre: pom.xml
   Descripción: Configuración Maven del backend del Sistema de Inventario de Ferretería
-               (Spring Boot 4, JPA, Flyway, Spring Security, springdoc-openapi, Testcontainers,
+               (Spring Boot 4, JPA, Flyway, Spring Security con JWT, springdoc-openapi, Testcontainers,
                Javadoc y JaCoCo).
   Fecha de creación: 2026-10-20
   Última actualización: 2026-10-20
@@ -51,6 +51,11 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<!-- JWT con el soporte de resource server de Spring Security (RF-SEG-001) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

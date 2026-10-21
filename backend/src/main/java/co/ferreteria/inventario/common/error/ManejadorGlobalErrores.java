@@ -156,6 +156,19 @@ public class ManejadorGlobalErrores extends ResponseEntityExceptionHandler {
 		return responder(CodigoError.CONFLICTO_UNICIDAD, detalle, List.of(), request);
 	}
 
+	/**
+	 * Operación rechazada por una regla de la aplicación (credenciales, bloqueo, último administrador...).
+	 *
+	 * @param ex excepción con el código y la clave del detalle
+	 * @param request solicitud en curso
+	 * @return respuesta con el estado HTTP del código
+	 */
+	@ExceptionHandler(OperacionRechazadaException.class)
+	public ResponseEntity<Object> manejarOperacionRechazada(OperacionRechazadaException ex, WebRequest request) {
+		String detalle = mensajes.obtener(ex.getClaveMensaje(), ex.getArgumentos());
+		return responder(ex.getCodigo(), detalle, List.of(), request);
+	}
+
 	// ------------------------------------------------------------------ base de datos
 
 	/**

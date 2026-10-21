@@ -37,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import co.ferreteria.inventario.common.i18n.Mensajes;
 import co.ferreteria.inventario.config.LocaleConfig;
+import co.ferreteria.inventario.security.ConfiguracionJwt;
 import co.ferreteria.inventario.security.ManejadorErroresSeguridad;
 import co.ferreteria.inventario.security.SecurityConfig;
 import jakarta.validation.Valid;
@@ -47,9 +48,9 @@ import jakarta.validation.constraints.Positive;
  * Verifica cada traducción del manejador global con un controlador de prueba que lanza las
  * excepciones; los errores de PostgreSQL se simulan con el mismo formato que envía el servidor.
  */
-@WebMvcTest
+@WebMvcTest(controllers = ManejadorGlobalErroresTests.ControladorPrueba.class)
 @ActiveProfiles("test")
-@Import({ ManejadorGlobalErroresTests.ControladorPrueba.class, SecurityConfig.class,
+@Import({ ManejadorGlobalErroresTests.ControladorPrueba.class, SecurityConfig.class, ConfiguracionJwt.class,
 		ManejadorErroresSeguridad.class, LocaleConfig.class, Mensajes.class })
 class ManejadorGlobalErroresTests {
 

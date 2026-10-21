@@ -23,6 +23,10 @@ public enum CodigoError {
 	SOLICITUD_INVALIDA(HttpStatus.BAD_REQUEST),
 	/** Falta autenticación o el token no es válido (RNF-SEG-001). */
 	NO_AUTENTICADO(HttpStatus.UNAUTHORIZED),
+	/** Usuario o contraseña incorrectos, o cuenta inactiva; no revela cuál (RF-SEG-001). */
+	CREDENCIALES_INVALIDAS(HttpStatus.UNAUTHORIZED),
+	/** La cuenta está bloqueada por intentos fallidos (RF-SEG-001, RNF-SEG-005). */
+	CUENTA_BLOQUEADA(HttpStatus.LOCKED),
 	/** El usuario no tiene el permiso requerido (RN-27, RNF-SEG-002). */
 	ACCESO_DENEGADO(HttpStatus.FORBIDDEN),
 	/** El recurso solicitado no existe. */
@@ -33,6 +37,8 @@ public enum CodigoError {
 	CONFLICTO_UNICIDAD(HttpStatus.CONFLICT),
 	/** Se referencia un registro que no existe o que está en uso (SQLSTATE 23503). */
 	CONFLICTO_REFERENCIA(HttpStatus.CONFLICT),
+	/** La operación choca con una regla de la aplicación (por ejemplo, dejar el sistema sin administrador). */
+	OPERACION_NO_PERMITIDA(HttpStatus.CONFLICT),
 	/** La base rechazó el dato por una restricción CHECK (SQLSTATE 23514). */
 	REGLA_INTEGRIDAD(HttpStatus.UNPROCESSABLE_CONTENT),
 	/** Un trigger de negocio rechazó la operación (SQLSTATE P0001). */
