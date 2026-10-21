@@ -4,14 +4,18 @@
  *              reportes JUnit XML del backend (Surefire), del frontend (Vitest), de Playwright y de
  *              Selenium, el resumen JSON de k6 y la cobertura de JaCoCo; marca cada criterio como CUMPLE
  *              (todas sus pruebas pasaron), FALLA (alguna falló) o SIN PRUEBA, y calcula el porcentaje de
- *              cumplimiento total y por requisito. Escribe Markdown y JSON en reportes/criterios/.
+ *              cumplimiento total y por requisito. Con --base compara contra un criterios.json anterior
+ *              (en CI, el de la última ejecución de main) y lista los criterios que dejaron de cumplirse.
+ *              Escribe en reportes/criterios/ el reporte completo (criterios.md y criterios.json) y uno
+ *              corto (criterios-resumen.md) para el comentario del pull request.
  * Fecha de creación: 2026-10-21
  * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  *
- * Uso (desde la raíz): node scripts/criterios.mjs [--salida reportes/criterios]
+ * Uso (desde la raíz): node scripts/criterios.mjs [--salida reportes/criterios] [--base ruta/criterios.json]
  * Requiere haber instalado la dependencia una vez: cd scripts && npm ci
  * Código de salida: 1 si algún criterio FALLA; 0 en otro caso (SIN PRUEBA no hace fallar).
+ * Si --base no existe o no se puede leer, se informa y el reporte sale sin comparación.
  *
  * Fuentes (rutas relativas a la raíz; las que no existen se informan y se omiten):
  *   backend/target/surefire-reports/TEST-*.xml      ./mvnw verify
@@ -34,11 +38,17 @@ import {
   leerCatalogo,
   relativa,
 } from './comun.mjs';
+import { leerCasosJUnit } from './junit.mjs';
 
 const { values: opciones } = parseArgs({
-  options: { salida: { type: 'string', default: 'reportes/criterios' } },
+  options: {
+    salida: { type: 'string', default: 'reportes/criterios' },
+    base: { type: 'string' },
+  },
 });
 const SALIDA = path.resolve(RAIZ, opciones.salida);
+/** criterios.json de una ejecución anterior (en CI, la última de main) para comparar; opcional. */
+const BASE = opciones.base ? path.resolve(process.cwd(), opciones.base) : null;
 
 /** Umbral de cobertura de líneas de RNF-MAN-001 (igual a jacoco.umbral del pom). */
 const UMBRAL_COBERTURA = 0.7;
@@ -59,37 +69,6 @@ const VUS_CARGA = 50;
  */
 
 // ------------------------------------------------------------------ lectura de JUnit XML
-
-/**
- * Decodifica las entidades XML de un texto.
- *
- * @param {string} texto texto con entidades
- * @returns {string} texto decodificado
- */
-function decodificar(texto) {
-  return texto
-    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&');
-}
-
-/**
- * Atributos de una etiqueta XML.
- *
- * @param {string} etiqueta texto de apertura, por ejemplo `testcase name="x" time="1"`
- * @returns {Record<string, string>} atributos decodificados
- */
-function atributos(etiqueta) {
-  const resultado = {};
-  for (const [, nombre, valor] of etiqueta.matchAll(/([\w:-]+)\s*=\s*"([^"]*)"/g)) {
-    resultado[nombre] = decodificar(valor);
-  }
-  return resultado;
-}
 
 /**
  * Ids de criterios citados en un texto, sin repetir.
@@ -114,28 +93,14 @@ function criteriosEn(...textos) {
  * @returns {Resultado[]} resultados
  */
 function leerJUnit(archivo, fuente) {
-  const xml = readFileSync(archivo, 'utf8');
-  const resultados = [];
-  const patron = /<testcase\b([^>]*?)(\/>|>([\s\S]*?)<\/testcase>)/g;
-  for (const [, apertura, , cuerpo = ''] of xml.matchAll(patron)) {
-    const { name = '', classname = '' } = atributos(apertura);
-    const falla = /<(failure|error)\b([^>]*?)(\/>|>([\s\S]*?)<\/\1>)/.exec(cuerpo);
-    const omitida = /<skipped\b/.test(cuerpo);
-    let mensaje;
-    if (falla) {
-      const { message, type } = atributos(falla[2]);
-      mensaje = (message || decodificar(falla[4] ?? '').split('\n')[0] || type || falla[1]).slice(0, 300);
-    }
-    resultados.push({
-      fuente,
-      archivo: relativa(archivo),
-      nombre: name,
-      estado: falla ? 'falla' : omitida ? 'omitida' : 'pasa',
-      mensaje,
-      criterios: criteriosEn(name, classname),
-    });
-  }
-  return resultados;
+  return leerCasosJUnit(archivo).map((caso) => ({
+    fuente,
+    archivo: relativa(archivo),
+    nombre: caso.nombre,
+    estado: caso.estado,
+    mensaje: caso.mensaje,
+    criterios: criteriosEn(caso.nombre, caso.clase),
+  }));
 }
 
 // ------------------------------------------------------------------ mediciones (k6 y JaCoCo)
@@ -322,6 +287,49 @@ function porcentaje(parte, total) {
 }
 
 /**
+ * Compara el estado actual de los criterios con el de un reporte anterior (opción --base).
+ * "Dejaron de cumplir" son los que en la base estaban en CUMPLE y ahora están en FALLA o SIN PRUEBA;
+ * "empezaron a cumplir", lo contrario.
+ *
+ * @param {{id: string, requisito: string, descripcion: string, estado: string}[]} criterios estado actual
+ * @param {{porcentaje: number}} total totales actuales
+ * @returns {object|null} comparación, o null si no hay base utilizable
+ */
+function comparar(criterios, total) {
+  if (!BASE) return null;
+  if (!existsSync(BASE)) {
+    console.warn(`Aviso: no existe el reporte base ${BASE}; se omite la comparación.`);
+    return null;
+  }
+  let base;
+  try {
+    base = JSON.parse(readFileSync(BASE, 'utf8'));
+  } catch (error) {
+    console.warn(`Aviso: no se pudo leer el reporte base ${BASE}: ${error.message}`);
+    return null;
+  }
+  const antes = new Map((base.criterios ?? []).map((c) => [c.id, c.estado]));
+  const fila = (c) => ({
+    id: c.id,
+    requisito: c.requisito,
+    descripcion: c.descripcion,
+    antes: antes.get(c.id),
+    ahora: c.estado,
+  });
+  return {
+    base: { generado: base.generado ?? null, porcentaje: base.total?.porcentaje ?? null },
+    variacion:
+      typeof base.total?.porcentaje === 'number'
+        ? Math.round((total.porcentaje - base.total.porcentaje) * 10) / 10
+        : null,
+    dejaronDeCumplir: criterios.filter((c) => antes.get(c.id) === 'CUMPLE' && c.estado !== 'CUMPLE').map(fila),
+    empezaronACumplir: criterios
+      .filter((c) => antes.has(c.id) && antes.get(c.id) !== 'CUMPLE' && c.estado === 'CUMPLE')
+      .map(fila),
+  };
+}
+
+/**
  * Evalúa el catálogo contra los resultados.
  *
  * @returns {object} reporte completo
@@ -377,6 +385,7 @@ function evaluar() {
     total,
     requisitos,
     criterios,
+    comparacion: comparar(criterios, total),
     fuentes,
     k6,
     coberturaBackend: cobertura,
@@ -407,22 +416,18 @@ function fechaLegible(iso) {
   }).format(new Date(iso));
 }
 
+/** Estado de un criterio con su icono. */
+const ICONO = { CUMPLE: '✅ CUMPLE', FALLA: '❌ FALLA', 'SIN PRUEBA': '⚪ SIN PRUEBA' };
+
 /**
- * Reporte en Markdown.
+ * Encabezado común de los dos reportes: fecha, porcentaje total y tabla por requisito.
  *
  * @param {ReturnType<typeof evaluar>} reporte datos evaluados
- * @returns {string} Markdown
+ * @returns {string[]} líneas Markdown
  */
-function markdown(reporte) {
+function encabezado(reporte) {
   const { total } = reporte;
-  const icono = { CUMPLE: '✅ CUMPLE', FALLA: '❌ FALLA', 'SIN PRUEBA': '⚪ SIN PRUEBA' };
-  const fuentes = (c) =>
-    Object.entries(c.porFuente)
-      .map(([f, n]) => `${f} ${n.pasan}${n.fallan ? `/${n.fallan} ✗` : ''}`)
-      .join(', ') || '—';
-  const pendientes = reporte.criterios.filter((c) => c.estado !== 'CUMPLE');
-
-  const lineas = [
+  return [
     '# Cumplimiento de criterios de aceptación',
     '',
     `Generado el ${fechaLegible(reporte.generado)} (hora de Bogotá) por \`scripts/criterios.mjs\` desde ` +
@@ -442,6 +447,51 @@ function markdown(reporte) {
       (r) => `| ${r.requisito} | ${r.total} | ${r.cumple} | ${r.falla} | ${r.sinPrueba} | ${r.porcentaje} % |`,
     ),
     '',
+  ];
+}
+
+/**
+ * Sección con la comparación contra el reporte base (vacía si no se pasó --base).
+ *
+ * @param {ReturnType<typeof evaluar>} reporte datos evaluados
+ * @returns {string[]} líneas Markdown
+ */
+function seccionComparacion(reporte) {
+  const comparacion = reporte.comparacion;
+  if (!comparacion) return [];
+  const signo = comparacion.variacion > 0 ? '+' : '';
+  const tabla = (lista) => [
+    '| Criterio | Antes | Ahora | Descripción |',
+    '| --- | --- | --- | --- |',
+    ...lista.map((c) => `| ${c.id} | ${ICONO[c.antes]} | ${ICONO[c.ahora]} | ${celda(c.descripcion)} |`),
+  ];
+  return [
+    '## Cambios respecto a main',
+    '',
+    `Base: reporte del ${fechaLegible(comparacion.base.generado)}, con ${comparacion.base.porcentaje ?? '—'} % ` +
+      `de cumplimiento` +
+      (comparacion.variacion === null ? '.' : ` (variación: ${signo}${comparacion.variacion} puntos).`),
+    '',
+    '### Dejaron de cumplirse',
+    '',
+    ...(comparacion.dejaronDeCumplir.length === 0 ? ['Ninguno.'] : tabla(comparacion.dejaronDeCumplir)),
+    '',
+    '### Empezaron a cumplirse',
+    '',
+    ...(comparacion.empezaronACumplir.length === 0 ? ['Ninguno.'] : tabla(comparacion.empezaronACumplir)),
+    '',
+  ];
+}
+
+/**
+ * Tabla de los criterios que no cumplen, con el detalle de sus fallas o la observación del catálogo.
+ *
+ * @param {ReturnType<typeof evaluar>} reporte datos evaluados
+ * @returns {string[]} líneas Markdown
+ */
+function seccionPendientes(reporte) {
+  const pendientes = reporte.criterios.filter((c) => c.estado !== 'CUMPLE');
+  return [
     '## Criterios que no cumplen o no tienen prueba',
     '',
     ...(pendientes.length === 0
@@ -454,16 +504,45 @@ function markdown(reporte) {
               c.estado === 'FALLA'
                 ? c.fallas.map((f) => `${f.fuente}: ${f.nombre} — ${f.mensaje ?? ''}`).join('<br>')
                 : (c.observacion ?? '');
-            return `| ${c.id} | ${icono[c.estado]} | ${celda(c.descripcion)} | ${celda(detalle)} |`;
+            return `| ${c.id} | ${ICONO[c.estado]} | ${celda(c.descripcion)} | ${celda(detalle)} |`;
           }),
         ]),
     '',
+  ];
+}
+
+/**
+ * Reporte corto para el comentario del pull request: encabezado, comparación y pendientes.
+ *
+ * @param {ReturnType<typeof evaluar>} reporte datos evaluados
+ * @returns {string} Markdown
+ */
+function markdownResumen(reporte) {
+  return [...encabezado(reporte), ...seccionComparacion(reporte), ...seccionPendientes(reporte)].join('\n');
+}
+
+/**
+ * Reporte completo en Markdown.
+ *
+ * @param {ReturnType<typeof evaluar>} reporte datos evaluados
+ * @returns {string} Markdown
+ */
+function markdown(reporte) {
+  const fuentes = (c) =>
+    Object.entries(c.porFuente)
+      .map(([f, n]) => `${f} ${n.pasan}${n.fallan ? `/${n.fallan} ✗` : ''}`)
+      .join(', ') || '—';
+
+  const lineas = [
+    ...encabezado(reporte),
+    ...seccionComparacion(reporte),
+    ...seccionPendientes(reporte),
     '## Todos los criterios',
     '',
     '| Criterio | Requisito | Estado | Pruebas | Por fuente (pasan/fallan) |',
     '| --- | --- | --- | --- | --- |',
     ...reporte.criterios.map(
-      (c) => `| ${c.id} | ${c.requisito} | ${icono[c.estado]} | ${c.pruebas} | ${fuentes(c)} |`,
+      (c) => `| ${c.id} | ${c.requisito} | ${ICONO[c.estado]} | ${c.pruebas} | ${fuentes(c)} |`,
     ),
     '',
     '## Fuentes leídas',
@@ -514,12 +593,20 @@ const reporte = evaluar();
 mkdirSync(SALIDA, { recursive: true });
 writeFileSync(path.join(SALIDA, 'criterios.json'), JSON.stringify(reporte, null, 2), 'utf8');
 writeFileSync(path.join(SALIDA, 'criterios.md'), markdown(reporte), 'utf8');
+writeFileSync(path.join(SALIDA, 'criterios-resumen.md'), markdownResumen(reporte), 'utf8');
 
 const { total } = reporte;
 console.log(
   `Cumplimiento: ${total.porcentaje} % (${total.cumple} de ${total.total} cumplen, ${total.falla} fallan, ` +
     `${total.sinPrueba} sin prueba). Reporte en ${relativa(SALIDA)}/criterios.md y criterios.json.`,
 );
+if (reporte.comparacion) {
+  const { dejaronDeCumplir, empezaronACumplir } = reporte.comparacion;
+  console.log(
+    `Respecto a la base: ${dejaronDeCumplir.length} dejaron de cumplirse, ${empezaronACumplir.length} empezaron a cumplirse.`,
+  );
+  for (const c of dejaronDeCumplir) console.log(`  DEJÓ DE CUMPLIR ${c.id} (${c.ahora})`);
+}
 for (const f of reporte.fuentes.filter((f) => f.archivos === 0)) {
   console.warn(`Aviso: no hay reportes de ${f.fuente} en ${f.ubicacion}.`);
 }

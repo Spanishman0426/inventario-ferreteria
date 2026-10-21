@@ -82,5 +82,7 @@ desktop.ini
 # --- Backend: keystore HTTPS de desarrollo ---
 backend/certs/
 
-# --- CI: resumen de pruebas generado en local por .github/scripts ---
-resumen-backend.json
+# --- CI: resúmenes, imágenes y logs generados en local por .github/scripts y los pasos del pipeline ---
+resumen-*.json
+imagenes-e2e.tar.gz
+logs-entorno-*.txt

@@ -41,7 +41,8 @@ export default defineConfig(({ mode }) => {
       outputFile: { junit: './reportes/junit/resultados-frontend.xml' },
       coverage: {
         provider: 'v8',
-        reporter: ['text', 'html', 'lcov'],
+        // json-summary: el pipeline de CI lee la cobertura total de coverage/coverage-summary.json
+        reporter: ['text', 'html', 'lcov', 'json-summary'],
         include: ['src/**/*.{js,jsx}'],
         exclude: ['src/main.jsx', 'src/test/**', 'src/**/*.test.{js,jsx}'],
       },
