@@ -1,0 +1,1436 @@
+# Nombre: openapi.yaml
+# Descripción: Contrato OpenAPI 3 de la API REST, generado por springdoc desde el código.
+#              No editar a mano: regenerar con
+#              cd backend && mvnw test -Dtest=ContratoOpenApiTests -Dopenapi.actualizar=true
+#              La prueba ContratoOpenApiTests falla si el código y este archivo dejan de coincidir.
+# Fecha de creación: 2026-10-20
+# Última actualización: 2026-10-20
+# Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
+openapi: 3.1.0
+info:
+  description: "Catálogo, compras, ventas, existencias, cierres y reportes de una\
+    \ ferretería con una sola bodega."
+  title: API del Sistema de Inventario de Ferretería
+  version: v1
+servers:
+- description: Servidor actual
+  url: /
+tags:
+- description: "Usuarios, roles y activación de cuentas (RF-SEG-001)"
+  name: Usuarios
+- description: Inicio de sesión con JWT (RF-SEG-001)
+  name: Autenticación
+- description: "Catálogo de productos (RF-PRO-001, RF-PRO-003)"
+  name: Productos
+- description: Consulta de la auditoría de operaciones e inicios de sesión (RF-SEG-002)
+  name: Auditoría
+- description: "Marcas, categorías, unidades y tarifas de IVA para selectores"
+  name: Catálogos de referencia
+paths:
+  /api/v1/auditoria:
+    get:
+      operationId: listarAuditoria
+      parameters:
+      - in: query
+        name: usuarioId
+        required: false
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - in: query
+        name: entidad
+        required: false
+        schema:
+          type: string
+          maxLength: 60
+          minLength: 0
+          pattern: "^[a-z_]+$"
+      - description: "CREAR, MODIFICAR, ELIMINAR, ANULAR, APROBAR, CAMBIAR_ESTADO,\
+          \ INICIAR_SESION, SESION_FALLIDA o DEPURAR"
+        in: query
+        name: accion
+        required: false
+        schema:
+          type: string
+          pattern: ^(CREAR|MODIFICAR|ELIMINAR|ANULAR|APROBAR|CAMBIAR_ESTADO|INICIAR_SESION|SESION_FALLIDA|DEPURAR)$
+      - in: query
+        name: desde
+        required: false
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: hasta
+        required: false
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: pagina
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - in: query
+        name: tamano
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PaginaRegistroAuditoriaResumen"
+          description: Página de registros
+        "400":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PaginaRegistroAuditoriaResumen"
+          description: Filtro no válido
+        "401":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PaginaRegistroAuditoriaResumen"
+          description: Sin token válido
+        "403":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PaginaRegistroAuditoriaResumen"
+          description: Sin el permiso AUDITORIA_VER
+      security:
+      - bearerAuth: []
+      summary: Listar auditoría
+      tags:
+      - Auditoría
+  /api/v1/auditoria/{id}:
+    get:
+      operationId: obtenerRegistroAuditoria
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RegistroAuditoriaDetalle"
+          description: Registro
+        "401":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RegistroAuditoriaDetalle"
+          description: Sin token válido
+        "403":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RegistroAuditoriaDetalle"
+          description: Sin el permiso AUDITORIA_VER
+        "404":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RegistroAuditoriaDetalle"
+          description: No existe
+      security:
+      - bearerAuth: []
+      summary: Consultar un registro de auditoría
+      tags:
+      - Auditoría
+  /api/v1/auth/login:
+    post:
+      description: Valida usuario y contraseña. Cinco intentos fallidos bloquean la
+        cuenta 15 minutos.
+      operationId: iniciarSesion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SolicitudInicioSesion"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RespuestaInicioSesion"
+          description: Token emitido
+        "400":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RespuestaInicioSesion"
+          description: Datos incompletos
+        "401":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RespuestaInicioSesion"
+          description: Credenciales inválidas o cuenta inactiva
+        "423":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RespuestaInicioSesion"
+          description: Cuenta bloqueada por intentos fallidos
+      summary: Iniciar sesión
+      tags:
+      - Autenticación
+  /api/v1/auth/me:
+    get:
+      operationId: usuarioActual
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioSesion"
+          description: Usuario autenticado
+        "401":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioSesion"
+          description: Sin token válido
+      security:
+      - bearerAuth: []
+      summary: Usuario autenticado
+      tags:
+      - Autenticación
+  /api/v1/categorias:
+    get:
+      description: Ordenadas por nombre.
+      operationId: listarCategorias
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Referencia"
+          description: Lista
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+      security:
+      - bearerAuth: []
+      summary: Listar categorías activas
+      tags:
+      - Catálogos de referencia
+  /api/v1/marcas:
+    get:
+      description: Ordenadas por nombre.
+      operationId: listarMarcas
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Referencia"
+          description: Lista
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+      security:
+      - bearerAuth: []
+      summary: Listar marcas activas
+      tags:
+      - Catálogos de referencia
+  /api/v1/productos:
+    get:
+      description: "Lista paginada. `page` empieza en 0; `size` va de 1 a 100 (20\
+        \ por defecto; un valor mayor se limita a 100). `sort` admite `id`, `nombre`,\
+        \ `creadoEn`, `marca` y `categoria`, con `,asc` o `,desc`, y puede repetirse;\
+        \ por defecto `nombre,asc`. Sin el permiso COSTOS_VER no se incluyen `porcentajeIncremento`\
+        \ ni `ultimoCostoBase`."
+      operationId: listarProductos
+      parameters:
+      - description: "Texto contenido en el nombre, sin distinguir mayúsculas."
+        example: martillo
+        in: query
+        name: q
+        required: false
+        schema:
+          type: string
+          maxLength: 150
+          minLength: 0
+      - description: Id de la categoría.
+        example: 1
+        in: query
+        name: categoriaId
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - description: Estado del producto.
+        in: query
+        name: estado
+        required: false
+        schema:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+      - description: Zero-based page index (0..N)
+        in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+      - description: The size of the page to be returned
+        in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          default: 20
+          minimum: 1
+      - description: "Sorting criteria in the format: property,(asc|desc). Default\
+          \ sort order is ascending. Multiple sort criteria are supported."
+        in: query
+        name: sort
+        required: false
+        schema:
+          type: array
+          default:
+          - "nombre,ASC"
+          items:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginaProductoRespuesta"
+          description: Página de productos
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+      security:
+      - bearerAuth: []
+      summary: Buscar productos
+      tags:
+      - Productos
+    post:
+      description: "Marca, categoría y tarifa de IVA deben existir y estar activas;\
+        \ la unidad base debe existir. `plazoGarantiaMeses` es obligatorio si y solo\
+        \ si `control` es GARANTIA. El nombre no se repite dentro de la misma marca,\
+        \ sin distinguir mayúsculas."
+      operationId: crearProducto
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductoPeticion"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductoRespuesta"
+          description: Creado
+          headers:
+            Location:
+              description: URL del producto creado
+              schema:
+                type: string
+                format: uri
+                example: /api/v1/productos/10
+              style: simple
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "409":
+          $ref: "#/components/responses/Error409"
+        "422":
+          $ref: "#/components/responses/Error422"
+      security:
+      - bearerAuth: []
+      summary: Registrar producto
+      tags:
+      - Productos
+  /api/v1/productos/{id}:
+    delete:
+      description: "No elimina el registro: lo deja en estado INACTIVO, porque un\
+        \ elemento de catálogo en uso no se elimina, solo se desactiva (RF-CFG-001).\
+        \ El producto sigue disponible en GET y puede reactivarse con PUT y `estado:\
+        \ ACTIVO`. Es idempotente: repetirlo también responde 204."
+      operationId: inactivarProducto
+      parameters:
+      - description: Id del producto.
+        example: 1
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "204":
+          description: Producto inactivado
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+      security:
+      - bearerAuth: []
+      summary: Inactivar producto (borrado lógico)
+      tags:
+      - Productos
+    get:
+      description: Devuelve también los productos INACTIVOS.
+      operationId: obtenerProducto
+      parameters:
+      - description: Id del producto.
+        example: 1
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductoRespuesta"
+          description: Producto
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+      security:
+      - bearerAuth: []
+      summary: Consultar un producto
+      tags:
+      - Productos
+    put:
+      description: "Reemplaza todos los campos; `estado` permite reactivar un producto.\
+        \ La unidad base no cambia si el producto tiene presentaciones o lotes (RN-05),\
+        \ ni el control si tiene lotes (RN-18): ambos casos responden 409 OPERACION_NO_PERMITIDA."
+      operationId: actualizarProducto
+      parameters:
+      - description: Id del producto.
+        example: 1
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductoPeticion"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductoRespuesta"
+          description: Actualizado
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "409":
+          $ref: "#/components/responses/Error409"
+        "422":
+          $ref: "#/components/responses/Error422"
+      security:
+      - bearerAuth: []
+      summary: Editar producto
+      tags:
+      - Productos
+  /api/v1/roles:
+    get:
+      operationId: listarRoles
+      responses:
+        "401":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RolRespuesta"
+          description: Sin token válido
+        "403":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RolRespuesta"
+          description: Sin el permiso USUARIOS_GESTIONAR
+      security:
+      - bearerAuth: []
+      summary: Listar roles con sus permisos
+      tags:
+      - Usuarios
+  /api/v1/tarifas-iva:
+    get:
+      description: Ordenadas por porcentaje (RN-08).
+      operationId: listarTarifasIva
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TarifaIva"
+          description: Lista
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+      security:
+      - bearerAuth: []
+      summary: Listar tarifas de IVA activas
+      tags:
+      - Catálogos de referencia
+  /api/v1/unidades-medida:
+    get:
+      description: "Las 13 unidades de RN-05, ordenadas por código; `esDiscreta` indica\
+        \ si solo admite enteros."
+      operationId: listarUnidadesMedida
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UnidadMedida"
+          description: Lista
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+      security:
+      - bearerAuth: []
+      summary: Listar unidades de medida
+      tags:
+      - Catálogos de referencia
+  /api/v1/usuarios:
+    get:
+      operationId: listarUsuarios
+      parameters:
+      - in: query
+        name: pagina
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - in: query
+        name: tamano
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+          maximum: 100
+          minimum: 1
+      responses:
+        "401":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PaginaUsuarioRespuesta"
+          description: Sin token válido
+        "403":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PaginaUsuarioRespuesta"
+          description: Sin el permiso USUARIOS_GESTIONAR
+      security:
+      - bearerAuth: []
+      summary: Listar usuarios
+      tags:
+      - Usuarios
+    post:
+      description: Contraseña de al menos 8 caracteres con letras y números; se guarda
+        con BCrypt.
+      operationId: crearUsuario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UsuarioCreacion"
+        required: true
+      responses:
+        "201":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Creado
+        "400":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Datos no válidos
+        "401":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Sin token válido
+        "403":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Sin el permiso USUARIOS_GESTIONAR
+        "404":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Rol inexistente
+        "409":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Usuario o correo duplicado
+      security:
+      - bearerAuth: []
+      summary: Crear usuario
+      tags:
+      - Usuarios
+  /api/v1/usuarios/{id}:
+    get:
+      operationId: obtenerUsuario
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "401":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Sin token válido
+        "403":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Sin el permiso USUARIOS_GESTIONAR
+        "404":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: No existe
+      security:
+      - bearerAuth: []
+      summary: Consultar un usuario
+      tags:
+      - Usuarios
+    put:
+      operationId: actualizarUsuario
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UsuarioActualizacion"
+        required: true
+      responses:
+        "401":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Sin token válido
+        "403":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Sin el permiso USUARIOS_GESTIONAR
+        "409":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Correo duplicado
+      security:
+      - bearerAuth: []
+      summary: Editar nombre y correo
+      tags:
+      - Usuarios
+  /api/v1/usuarios/{id}/contrasena:
+    put:
+      description: Mismas reglas que al crear; también levanta un bloqueo vigente.
+      operationId: cambiarContrasena
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CambioContrasena"
+        required: true
+      responses:
+        "204":
+          description: Contraseña cambiada
+        "401":
+          description: Sin token válido
+        "403":
+          description: Sin el permiso USUARIOS_GESTIONAR
+      security:
+      - bearerAuth: []
+      summary: Cambiar contraseña
+      tags:
+      - Usuarios
+  /api/v1/usuarios/{id}/estado:
+    patch:
+      description: Un administrador no puede desactivarse a sí mismo ni desactivar
+        al último administrador activo.
+      operationId: cambiarEstado
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CambioEstado"
+        required: true
+      responses:
+        "401":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Sin token válido
+        "403":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Sin el permiso USUARIOS_GESTIONAR
+        "409":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Autodesactivación o último administrador
+      security:
+      - bearerAuth: []
+      summary: Activar o desactivar
+      tags:
+      - Usuarios
+  /api/v1/usuarios/{id}/roles:
+    put:
+      description: No se puede quitar el rol ADMIN al último administrador activo.
+      operationId: asignarRoles
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CambioRoles"
+        required: true
+      responses:
+        "401":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Sin token válido
+        "403":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Sin el permiso USUARIOS_GESTIONAR
+        "409":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UsuarioRespuesta"
+          description: Dejaría el sistema sin administrador
+      security:
+      - bearerAuth: []
+      summary: Asignar roles
+      tags:
+      - Usuarios
+components:
+  responses:
+    Error400:
+      content:
+        application/problem+json:
+          examples:
+            validacion:
+              value:
+                codigo: VALIDACION
+                detail: Uno o más campos no cumplen las reglas de validación.
+                errores:
+                - campo: plazoGarantiaMeses
+                  mensaje: es obligatorio cuando el control es GARANTIA
+                instance: /api/v1/productos
+                status: 400
+                title: Datos no válidos
+          schema:
+            $ref: "#/components/schemas/Problema"
+      description: Datos no válidos (VALIDACION o SOLICITUD_INVALIDA); el detalle
+        de cada campo está en errores.
+    Error401:
+      content:
+        application/problem+json:
+          examples:
+            no_autenticado:
+              value:
+                codigo: NO_AUTENTICADO
+                detail: Debe iniciar sesión para realizar esta operación.
+                errores: []
+                instance: /api/v1/productos
+                status: 401
+                title: No autenticado
+          schema:
+            $ref: "#/components/schemas/Problema"
+      description: Sin token válido (NO_AUTENTICADO).
+    Error403:
+      content:
+        application/problem+json:
+          examples:
+            acceso_denegado:
+              value:
+                codigo: ACCESO_DENEGADO
+                detail: Su rol no tiene permiso para realizar esta operación.
+                errores: []
+                instance: /api/v1/productos
+                status: 403
+                title: Acceso denegado
+          schema:
+            $ref: "#/components/schemas/Problema"
+      description: El rol no tiene el permiso requerido (ACCESO_DENEGADO).
+    Error404:
+      content:
+        application/problem+json:
+          examples:
+            no_encontrado:
+              value:
+                codigo: NO_ENCONTRADO
+                detail: No existe el producto con identificador 999.
+                errores: []
+                instance: /api/v1/productos
+                status: 404
+                title: Recurso no encontrado
+          schema:
+            $ref: "#/components/schemas/Problema"
+      description: El recurso no existe (NO_ENCONTRADO).
+    Error409:
+      content:
+        application/problem+json:
+          examples:
+            conflicto_unicidad:
+              value:
+                codigo: CONFLICTO_UNICIDAD
+                detail: Ya existe el producto «Martillo de uña 16 oz» para la marca
+                  Stanley.
+                errores: []
+                instance: /api/v1/productos
+                status: 409
+                title: Registro duplicado
+          schema:
+            $ref: "#/components/schemas/Problema"
+      description: Registro duplicado (CONFLICTO_UNICIDAD) u operación no permitida
+        por una regla de la aplicación (OPERACION_NO_PERMITIDA).
+    Error422:
+      content:
+        application/problem+json:
+          examples:
+            regla_integridad:
+              value:
+                codigo: REGLA_INTEGRIDAD
+                detail: Los datos no cumplen una regla de integridad de la base de
+                  datos (ck_producto_garantia).
+                errores: []
+                instance: /api/v1/productos
+                restriccion: ck_producto_garantia
+                status: 422
+                title: Regla de integridad incumplida
+          schema:
+            $ref: "#/components/schemas/Problema"
+      description: La base de datos rechazó el dato por una restricción (REGLA_INTEGRIDAD)
+        o un trigger de negocio (REGLA_NEGOCIO).
+  schemas:
+    CambioContrasena:
+      type: object
+      properties:
+        contrasena:
+          type: string
+          format: password
+          maxLength: 72
+          minLength: 8
+          pattern: "^(?=.*[A-Za-zÁÉÍÓÚÜÑáéíóúüñ])(?=.*\\d).+$"
+      required:
+      - contrasena
+    CambioEstado:
+      type: object
+      properties:
+        activo:
+          type: boolean
+      required:
+      - activo
+    CambioRoles:
+      type: object
+      properties:
+        roles:
+          type: array
+          example:
+          - GERENTE
+          items:
+            type: string
+            minLength: 1
+          minItems: 1
+          uniqueItems: true
+      required:
+      - roles
+    PaginaProductoRespuesta:
+      type: object
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductoRespuesta"
+        pagina:
+          type: integer
+          format: int32
+        tamano:
+          type: integer
+          format: int32
+        totalElementos:
+          type: integer
+          format: int64
+        totalPaginas:
+          type: integer
+          format: int32
+    PaginaRegistroAuditoriaResumen:
+      type: object
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegistroAuditoriaResumen"
+        pagina:
+          type: integer
+          format: int32
+        tamano:
+          type: integer
+          format: int32
+        totalElementos:
+          type: integer
+          format: int64
+        totalPaginas:
+          type: integer
+          format: int32
+    PaginaUsuarioRespuesta:
+      type: object
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsuarioRespuesta"
+        pagina:
+          type: integer
+          format: int32
+        tamano:
+          type: integer
+          format: int32
+        totalElementos:
+          type: integer
+          format: int64
+        totalPaginas:
+          type: integer
+          format: int32
+    Problema:
+      type: object
+      description: Error en formato Problem Details (RFC 9457) con código propio y
+        errores por campo.
+      properties:
+        codigo:
+          type: string
+          description: Código estable entre idiomas; el frontend decide según este
+            valor.
+          enum:
+          - VALIDACION
+          - SOLICITUD_INVALIDA
+          - NO_AUTENTICADO
+          - CREDENCIALES_INVALIDAS
+          - CUENTA_BLOQUEADA
+          - ACCESO_DENEGADO
+          - NO_ENCONTRADO
+          - METODO_NO_PERMITIDO
+          - CONFLICTO_UNICIDAD
+          - CONFLICTO_REFERENCIA
+          - OPERACION_NO_PERMITIDA
+          - REGLA_INTEGRIDAD
+          - REGLA_NEGOCIO
+          - ERROR_INTERNO
+        detail:
+          type: string
+          description: Detalle traducido de la causa.
+        errores:
+          type: array
+          description: Errores por campo; vacío si el error no es de un campo.
+          items:
+            type: object
+            properties:
+              campo:
+                type: string
+                description: Nombre del campo.
+                example: nombre
+              mensaje:
+                type: string
+                description: Causa traducida.
+        instance:
+          type: string
+          format: uri
+          description: Ruta de la solicitud.
+        restriccion:
+          type: string
+          description: "Restricción de la base de datos violada, si aplica."
+        status:
+          type: integer
+          format: int32
+          description: Estado HTTP.
+        title:
+          type: string
+          description: Título traducido según Accept-Language.
+        type:
+          type: string
+          format: uri
+          example: about:blank
+    ProductoPeticion:
+      type: object
+      description: Datos para crear o reemplazar un producto (RF-PRO-001).
+      properties:
+        categoriaId:
+          type: integer
+          format: int64
+          description: Id de una categoría activa (GET /api/v1/categorias).
+          example: 1
+        control:
+          type: string
+          description: Tipo de control.
+          enum:
+          - NINGUNO
+          - VENCIMIENTO
+          - GARANTIA
+          example: GARANTIA
+        descripcion:
+          type: string
+          description: Detalle adicional.
+          example: Mango de fibra de vidrio
+          maxLength: 500
+          minLength: 0
+        estado:
+          type: string
+          description: "Estado; si se omite, ACTIVO al crear y sin cambio al editar."
+          enum:
+          - ACTIVO
+          - INACTIVO
+          example: ACTIVO
+        marcaId:
+          type: integer
+          format: int64
+          description: Id de una marca activa (GET /api/v1/marcas).
+          example: 1
+        nombre:
+          type: string
+          description: Denominación; única por marca sin distinguir mayúsculas.
+          example: Martillo de uña 16 oz
+          maxLength: 150
+          minLength: 3
+        plazoGarantiaMeses:
+          type: integer
+          format: int32
+          description: Meses de garantía; obligatorio si y solo si control = GARANTIA.
+          example: 12
+          exclusiveMinimum: 0
+          maximum: 32767
+          minimum: 1
+        porcentajeIncremento:
+          type: number
+          description: "Margen sobre el costo de la última compra, entre 0 y 500."
+          example: 30.0
+          maximum: 500
+          minimum: 0
+        tarifaIvaId:
+          type: integer
+          format: int32
+          description: Id de una tarifa de IVA activa (GET /api/v1/tarifas-iva).
+          example: 3
+        unidadBase:
+          type: string
+          description: Código de la unidad base (GET /api/v1/unidades-medida).
+          example: UND
+          maxLength: 4
+          minLength: 0
+      required:
+      - categoriaId
+      - control
+      - marcaId
+      - nombre
+      - porcentajeIncremento
+      - tarifaIvaId
+      - unidadBase
+    ProductoRespuesta:
+      type: object
+      description: "Producto del catálogo (RF-PRO-001, RF-PRO-003)."
+      properties:
+        categoria:
+          $ref: "#/components/schemas/Referencia"
+        control:
+          type: string
+          enum:
+          - NINGUNO
+          - VENCIMIENTO
+          - GARANTIA
+          example: GARANTIA
+        creadoEn:
+          type: string
+          format: date-time
+          example: 2026-10-20T15:30:00Z
+        descripcion:
+          type: string
+          example: Mango de fibra de vidrio
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+          example: ACTIVO
+        id:
+          type: integer
+          format: int64
+          example: 10
+        marca:
+          $ref: "#/components/schemas/Referencia"
+        nombre:
+          type: string
+          example: Martillo de uña 16 oz
+        plazoGarantiaMeses:
+          type: integer
+          format: int32
+          example: 12
+        porcentajeIncremento:
+          type: number
+          description: Solo si el usuario tiene COSTOS_VER.
+          example: 30.0
+        tarifaIva:
+          $ref: "#/components/schemas/TarifaIva"
+        ultimoCostoBase:
+          type: number
+          description: Costo unitario en unidad base de la última compra (RN-20);
+            solo si el usuario tiene COSTOS_VER y ya hubo una recepción.
+          example: 18000.0
+        unidadBase:
+          $ref: "#/components/schemas/UnidadMedida"
+    Referencia:
+      type: object
+      description: Marca o categoría.
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        nombre:
+          type: string
+          example: Stanley
+    RegistroAuditoriaDetalle:
+      type: object
+      properties:
+        accion:
+          type: string
+        entidad:
+          type: string
+        entidadId:
+          type: integer
+          format: int64
+        fecha:
+          type: string
+          format: date-time
+        id:
+          type: integer
+          format: int64
+        ip:
+          type: string
+        usuario:
+          type: string
+        usuarioId:
+          type: integer
+          format: int64
+        valoresAntes:
+          type: string
+        valoresDespues:
+          type: string
+    RegistroAuditoriaResumen:
+      type: object
+      properties:
+        accion:
+          type: string
+        entidad:
+          type: string
+        entidadId:
+          type: integer
+          format: int64
+        fecha:
+          type: string
+          format: date-time
+        id:
+          type: integer
+          format: int64
+        ip:
+          type: string
+        usuario:
+          type: string
+        usuarioId:
+          type: integer
+          format: int64
+    RespuestaInicioSesion:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        expiresIn:
+          type: integer
+          format: int64
+        usuario:
+          $ref: "#/components/schemas/UsuarioSesion"
+    RolRespuesta:
+      type: object
+      properties:
+        codigo:
+          type: string
+        nombre:
+          type: string
+        permisos:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+    SolicitudInicioSesion:
+      type: object
+      properties:
+        contrasena:
+          type: string
+          format: password
+          maxLength: 72
+          minLength: 0
+        usuario:
+          type: string
+          example: admin
+          maxLength: 100
+          minLength: 0
+      required:
+      - contrasena
+      - usuario
+    TarifaIva:
+      type: object
+      description: Tarifa de IVA (RN-08).
+      properties:
+        id:
+          type: integer
+          format: int32
+          example: 3
+        nombre:
+          type: string
+          example: Tarifa general
+        porcentaje:
+          type: number
+          example: 19.0
+    UnidadMedida:
+      type: object
+      description: Unidad base (RN-05); las discretas solo admiten enteros.
+      properties:
+        codigo:
+          type: string
+          example: UND
+        esDiscreta:
+          type: boolean
+          example: true
+        nombre:
+          type: string
+          example: Unidad
+    UsuarioActualizacion:
+      type: object
+      properties:
+        correo:
+          type: string
+          format: email
+          maxLength: 150
+          minLength: 0
+        nombreCompleto:
+          type: string
+          maxLength: 150
+          minLength: 0
+      required:
+      - correo
+      - nombreCompleto
+    UsuarioCreacion:
+      type: object
+      properties:
+        contrasena:
+          type: string
+          format: password
+          maxLength: 72
+          minLength: 8
+          pattern: "^(?=.*[A-Za-zÁÉÍÓÚÜÑáéíóúüñ])(?=.*\\d).+$"
+        correo:
+          type: string
+          format: email
+          maxLength: 150
+          minLength: 0
+        nombreCompleto:
+          type: string
+          maxLength: 150
+          minLength: 0
+        roles:
+          type: array
+          example:
+          - VENDEDOR
+          items:
+            type: string
+            minLength: 1
+          minItems: 1
+          uniqueItems: true
+        usuario:
+          type: string
+          example: vendedor2
+          maxLength: 50
+          minLength: 3
+          pattern: "^[A-Za-z0-9._-]+$"
+      required:
+      - contrasena
+      - correo
+      - nombreCompleto
+      - roles
+      - usuario
+    UsuarioRespuesta:
+      type: object
+      properties:
+        activo:
+          type: boolean
+        bloqueadoHasta:
+          type: string
+          format: date-time
+        correo:
+          type: string
+        creadoEn:
+          type: string
+          format: date-time
+        id:
+          type: integer
+          format: int64
+        nombreCompleto:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        ultimoAcceso:
+          type: string
+          format: date-time
+        usuario:
+          type: string
+    UsuarioSesion:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        nombreCompleto:
+          type: string
+        permisos:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        roles:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http

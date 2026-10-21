@@ -113,6 +113,19 @@ public class ManejadorGlobalErrores extends ResponseEntityExceptionHandler {
 		return responder(CodigoError.VALIDACION, null, errores, request);
 	}
 
+	/**
+	 * Campo rechazado por una validación del servicio (referencia inexistente, orden desconocido...).
+	 *
+	 * @param ex excepción con el campo y la clave del mensaje
+	 * @param request solicitud en curso
+	 * @return respuesta 400 {@code VALIDACION} con un error en el campo
+	 */
+	@ExceptionHandler(CampoInvalidoException.class)
+	public ResponseEntity<Object> manejarCampoInvalido(CampoInvalidoException ex, WebRequest request) {
+		ErrorCampo error = new ErrorCampo(ex.getCampo(), mensajes.obtener(ex.getClaveMensaje(), ex.getArgumentos()));
+		return responder(CodigoError.VALIDACION, null, List.of(error), request);
+	}
+
 	// ------------------------------------------------------------------ no encontrado (404)
 
 	/**

@@ -73,7 +73,7 @@ public class UsuarioController {
 	 * @return página de usuarios
 	 */
 	@GetMapping("/usuarios")
-	@Operation(summary = "Listar usuarios")
+	@Operation(operationId = "listarUsuarios", summary = "Listar usuarios")
 	public Pagina<UsuarioRespuesta> listar(
 			@RequestParam(defaultValue = "0") @Min(0) int pagina,
 			@RequestParam(defaultValue = "" + Pagina.TAMANO_POR_DEFECTO) @Min(1) @Max(Pagina.TAMANO_MAXIMO) int tamano) {
@@ -87,7 +87,7 @@ public class UsuarioController {
 	 * @return usuario
 	 */
 	@GetMapping("/usuarios/{id}")
-	@Operation(summary = "Consultar un usuario")
+	@Operation(operationId = "obtenerUsuario", summary = "Consultar un usuario")
 	@ApiResponse(responseCode = "404", description = "No existe")
 	public UsuarioRespuesta obtener(@PathVariable long id) {
 		return servicio.obtener(id);
@@ -101,7 +101,7 @@ public class UsuarioController {
 	 */
 	@PostMapping("/usuarios")
 	@ResponseStatus(HttpStatus.CREATED)
-	@Operation(summary = "Crear usuario",
+	@Operation(operationId = "crearUsuario", summary = "Crear usuario",
 			description = "Contraseña de al menos 8 caracteres con letras y números; se guarda con BCrypt.")
 	@ApiResponse(responseCode = "201", description = "Creado")
 	@ApiResponse(responseCode = "400", description = "Datos no válidos")
@@ -119,7 +119,7 @@ public class UsuarioController {
 	 * @return usuario actualizado
 	 */
 	@PutMapping("/usuarios/{id}")
-	@Operation(summary = "Editar nombre y correo")
+	@Operation(operationId = "actualizarUsuario", summary = "Editar nombre y correo")
 	@ApiResponse(responseCode = "409", description = "Correo duplicado")
 	public UsuarioRespuesta actualizar(@PathVariable long id, @Valid @RequestBody UsuarioActualizacion datos) {
 		return servicio.actualizar(id, datos);

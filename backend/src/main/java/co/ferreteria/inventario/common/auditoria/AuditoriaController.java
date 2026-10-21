@@ -68,7 +68,7 @@ public class AuditoriaController {
 	 * @return página de registros
 	 */
 	@GetMapping
-	@Operation(summary = "Listar auditoría")
+	@Operation(operationId = "listarAuditoria", summary = "Listar auditoría")
 	@ApiResponse(responseCode = "200", description = "Página de registros")
 	@ApiResponse(responseCode = "400", description = "Filtro no válido")
 	public Pagina<RegistroAuditoriaResumen> listar(
@@ -92,7 +92,7 @@ public class AuditoriaController {
 	 * @return registro completo
 	 */
 	@GetMapping("/{id}")
-	@Operation(summary = "Consultar un registro de auditoría")
+	@Operation(operationId = "obtenerRegistroAuditoria", summary = "Consultar un registro de auditoría")
 	@ApiResponse(responseCode = "200", description = "Registro")
 	@ApiResponse(responseCode = "404", description = "No existe")
 	public RegistroAuditoriaDetalle obtener(@PathVariable long id) {

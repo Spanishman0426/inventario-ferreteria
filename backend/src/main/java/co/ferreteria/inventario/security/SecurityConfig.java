@@ -60,7 +60,7 @@ public class SecurityConfig {
 	/** Rutas accesibles sin autenticación. */
 	private static final String[] RUTAS_PUBLICAS = {
 		"/actuator/health", "/actuator/health/**", "/actuator/info",
-		"/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**",
+		"/v3/api-docs", "/v3/api-docs/**", "/v3/api-docs.yaml", "/swagger-ui.html", "/swagger-ui/**",
 		"/error"
 	};
 

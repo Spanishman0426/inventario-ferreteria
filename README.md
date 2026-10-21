@@ -62,6 +62,7 @@ inventario-ferreteria/
 - [Especificación de requisitos](docs/especificacion-requisitos.md)
 - [Modelo de datos](docs/modelo-datos.md)
 - [Plan y casos de prueba de la base de datos](docs/plan-pruebas-bd.md)
+- [API REST: contrato OpenAPI y ejemplos](docs/api/README.md)
 
 ## Cómo ejecutar
 
