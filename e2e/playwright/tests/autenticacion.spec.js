@@ -21,7 +21,7 @@ test.describe('Autenticación', () => {
 
     await test.step('con contraseña incorrecta muestra el aviso y no entra', async () => {
       await paginaLogin.iniciarSesion(USUARIOS.jefe.usuario, 'contrasena-incorrecta-1');
-      await expect(paginaLogin.aviso).toHaveText(TEXTOS.es.credencialesInvalidas);
+      await expect(paginaLogin.aviso).toHaveText('Texto alterado a propósito para probar la CI');
       await expect(page).toHaveURL(/\/login$/);
       await expect(barra.usuarioActual).toHaveCount(0);
     });
