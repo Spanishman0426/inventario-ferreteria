@@ -20,6 +20,8 @@ vi.mock('../services/authService.js', () => ({
   obtenerUsuarioActual: vi.fn(),
 }));
 vi.mock('../services/productosService.js', () => ({ listarProductos: vi.fn() }));
+// ProductosPage carga las categorías del filtro al montarse.
+vi.mock('../services/catalogosService.js', () => ({ listarCategorias: () => Promise.resolve([]) }));
 
 /**
  * Abre el selector y elige un idioma.

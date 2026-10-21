@@ -1,4 +1,10 @@
 {
   "requerido": "Este campo es obligatorio.",
-  "maximo": "Máximo {{max}} caracteres."
+  "maximo": "Máximo {{max}} caracteres.",
+  "minimo": "Mínimo {{min}} caracteres.",
+  "numero": "Debe ser un número.",
+  "entero": "Debe ser un número entero.",
+  "rango": "Debe estar entre {{min}} y {{max}}.",
+  "decimales": "Máximo {{max}} decimales.",
+  "opcionInvalida": "Seleccione una opción válida."
 }

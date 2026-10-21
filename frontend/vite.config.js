@@ -1,6 +1,7 @@
 /**
  * Nombre: vite.config.js
- * Descripción: Configuración de Vite (servidor de desarrollo con proxy HTTPS al backend) y de Vitest.
+ * Descripción: Configuración de Vite (servidor de desarrollo con proxy HTTPS al backend) y de Vitest,
+ *              con cobertura v8 (npm test -- --coverage).
  * Fecha de creación: 2026-10-21
  * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
@@ -33,6 +34,14 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.js'],
       css: false,
       restoreMocks: true,
+      // Los formularios con varios selectores de MUI tardan más de 5 s en jsdom en Windows.
+      testTimeout: 30000,
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'html', 'lcov'],
+        include: ['src/**/*.{js,jsx}'],
+        exclude: ['src/main.jsx', 'src/test/**', 'src/**/*.test.{js,jsx}'],
+      },
     },
   };
 });

@@ -1,4 +1,10 @@
 {
   "requerido": "This field is required.",
-  "maximo": "Maximum {{max}} characters."
+  "maximo": "Maximum {{max}} characters.",
+  "minimo": "Minimum {{min}} characters.",
+  "numero": "Must be a number.",
+  "entero": "Must be a whole number.",
+  "rango": "Must be between {{min}} and {{max}}.",
+  "decimales": "Maximum {{max}} decimal places.",
+  "opcionInvalida": "Select a valid option."
 }
