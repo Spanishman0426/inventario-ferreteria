@@ -51,7 +51,12 @@ export default function AppLayout() {
             {t('app.titulo')}
           </Typography>
           <Box component="nav" aria-label={t('menu.navegacion')} sx={{ flexGrow: 1 }}>
-            <Button color="inherit" component={NavLink} to="/productos">
+            <Button
+              color="inherit"
+              component={NavLink}
+              to="/productos"
+              data-testid="menu-productos"
+            >
               {t('menu.productos')}
             </Button>
           </Box>
@@ -68,6 +73,7 @@ export default function AppLayout() {
               color="inherit"
               onClick={() => setConfirmarSalida(true)}
               aria-label={t('sesion.salir')}
+              data-testid="sesion-salir"
             >
               <LogoutIcon />
             </IconButton>
@@ -84,6 +90,7 @@ export default function AppLayout() {
         textoConfirmar={t('sesion.salir')}
         onConfirmar={salir}
         onCancelar={() => setConfirmarSalida(false)}
+        testId="sesion-salir-confirmacion"
       />
     </Box>
   );

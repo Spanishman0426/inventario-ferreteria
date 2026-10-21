@@ -1,0 +1,74 @@
+# Nombre: docker-compose.e2e.yml
+# Descripción: Entorno de pruebas end-to-end: PostgreSQL 18 descartable, backend con el perfil e2e
+#              (esquema + escenario de database/02_datos_prueba.sql) y frontend compilado servido por
+#              nginx. Es el mismo en local (Windows) y en los runners Linux de GitHub Actions.
+# Fecha de creación: 2026-10-21
+# Última actualización: 2026-10-21
+# Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
+#
+# Uso (desde la raíz; las variables salen de .env, copiado de .env.example):
+#   docker compose -f docker-compose.e2e.yml up -d --build --wait
+#   ... ejecutar e2e/playwright y e2e/selenium contra http://127.0.0.1:${E2E_PUERTO:-8088} ...
+#   docker compose -f docker-compose.e2e.yml down
+# La base vive en memoria (tmpfs): cada "up" tras un "down" empieza con los datos de prueba limpios.
+
+name: ferreteria-e2e
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ferreteria_e2e
+      POSTGRES_USER: ferreteria
+      POSTGRES_PASSWORD: ${E2E_DB_PASSWORD:?Defina E2E_DB_PASSWORD en .env}
+      TZ: America/Bogota
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ferreteria -d ferreteria_e2e"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      SPRING_PROFILES_ACTIVE: e2e
+      DB_URL: jdbc:postgresql://postgres:5432/ferreteria_e2e
+      DB_USER: ferreteria
+      DB_PASSWORD: ${E2E_DB_PASSWORD}
+      JWT_SECRET: ${E2E_JWT_SECRET:?Defina E2E_JWT_SECRET en .env (32 caracteres o más)}
+      FRONTEND_URL: http://127.0.0.1:${E2E_PUERTO:-8088}
+      E2E_ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD:?Defina E2E_ADMIN_PASSWORD en .env}
+      E2E_JEFE_PASSWORD: ${E2E_JEFE_PASSWORD:?Defina E2E_JEFE_PASSWORD en .env}
+      E2E_VENDEDOR_PASSWORD: ${E2E_VENDEDOR_PASSWORD:?Defina E2E_VENDEDOR_PASSWORD en .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # La imagen JRE no trae curl: se consulta el actuator con /dev/tcp de bash
+      test:
+        - CMD-SHELL
+        - >-
+          bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080
+          && printf "GET /actuator/health HTTP/1.0\r\nHost: localhost\r\n\r\n" >&3
+          && grep -q "\"UP\"" <&3'
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "${E2E_PUERTO:-8088}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/login || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20

@@ -30,10 +30,10 @@
     "tituloEditar": "Edit product",
     "nombre": "Name",
     "descripcion": "Description",
-    "categoria": "Category",
-    "marca": "Brand",
+    "categoriaId": "Category",
+    "marcaId": "Brand",
     "unidadBase": "Base unit",
-    "tarifaIva": "VAT rate",
+    "tarifaIvaId": "VAT rate",
     "porcentajeIncremento": "Markup percentage",
     "control": "Control type",
     "plazoGarantiaMeses": "Warranty period (months)"

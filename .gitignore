@@ -30,6 +30,10 @@ playwright-report/
 blob-report/
 playwright/.cache/
 
+# --- Reportes E2E (Playwright y Selenium) ---
+e2e/playwright/reportes/
+e2e/selenium/reportes/
+
 # --- k6 ---
 load-tests/results/
 

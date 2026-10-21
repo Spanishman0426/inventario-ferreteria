@@ -40,7 +40,7 @@ function AvisoError({ error }) {
   const { t } = useTranslation('auth');
   if (error.codigo === 'CUENTA_BLOQUEADA') {
     return (
-      <Alert severity="warning" role="alert">
+      <Alert severity="warning" role="alert" data-testid="login-error">
         <AlertTitle>{t('login.cuentaBloqueadaTitulo')}</AlertTitle>
         {/* El detalle del servidor ya viene traducido e incluye la hora de desbloqueo. */}
         {error.detalle || t('login.cuentaBloqueada')}
@@ -49,13 +49,13 @@ function AvisoError({ error }) {
   }
   if (error.codigo === 'CREDENCIALES_INVALIDAS') {
     return (
-      <Alert severity="error" role="alert">
+      <Alert severity="error" role="alert" data-testid="login-error">
         {t('login.credencialesInvalidas')}
       </Alert>
     );
   }
   return (
-    <Alert severity="error" role="alert">
+    <Alert severity="error" role="alert" data-testid="login-error">
       {error.message}
     </Alert>
   );
@@ -107,6 +107,10 @@ export default function LoginPage() {
       onBlur: formik.handleBlur,
       error: mostrarError,
       helperText: mostrarError ? traducirError(t, formik.errors[campo]) : ' ',
+      slotProps: {
+        htmlInput: { 'data-testid': `login-${campo}` },
+        formHelperText: { 'data-testid': `login-error-${campo}` },
+      },
     };
   };
 
@@ -126,14 +130,20 @@ export default function LoginPage() {
       </Box>
       <Card sx={{ width: '100%', maxWidth: 400 }}>
         <CardContent>
-          <Stack spacing={2} component="form" noValidate onSubmit={formik.handleSubmit}>
+          <Stack
+            spacing={2}
+            component="form"
+            noValidate
+            onSubmit={formik.handleSubmit}
+            data-testid="login-form"
+          >
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               <HardwareIcon color="primary" aria-hidden />
               <Typography variant="subtitle1" color="text.secondary">
                 {t('comun:app.titulo')}
               </Typography>
             </Stack>
-            <Typography variant="h5" component="h1">
+            <Typography variant="h5" component="h1" data-testid="login-titulo">
               {t('login.titulo')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -149,7 +159,13 @@ export default function LoginPage() {
               type="password"
               autoComplete="current-password"
             />
-            <Button type="submit" variant="contained" size="large" disabled={formik.isSubmitting}>
+            <Button
+              type="submit"
+              variant="contained"
+              size="large"
+              disabled={formik.isSubmitting}
+              data-testid="login-entrar"
+            >
               {formik.isSubmitting ? t('login.entrando') : t('login.entrar')}
             </Button>
           </Stack>

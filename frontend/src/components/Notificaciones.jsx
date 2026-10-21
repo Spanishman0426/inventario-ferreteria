@@ -63,7 +63,14 @@ export default function Notificaciones({ children }) {
         onClose={cerrar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={cerrar} severity={actual.severidad} variant="filled" sx={{ width: '100%' }}>
+        <Alert
+          onClose={cerrar}
+          severity={actual.severidad}
+          variant="filled"
+          sx={{ width: '100%' }}
+          data-testid="notificacion"
+          data-severidad={actual.severidad}
+        >
           {actual.mensaje}
         </Alert>
       </Snackbar>

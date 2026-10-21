@@ -1,7 +1,7 @@
 # Nombre: criterios-aceptacion.yaml
 # Descripción: Catálogo de criterios de aceptación de los requisitos implementados (RF-PRO-001,
-#              RF-PRO-003, RF-SEG-001, RF-SEG-002) y de los RNF de seguridad, interacción y
-#              mantenibilidad que aplican, con los niveles de prueba que los cubren.
+#              RF-PRO-003, RF-CFG-001, RF-SEG-001, RF-SEG-002) y de los RNF de seguridad, interacción y
+#              mantenibilidad que aplican, con los niveles de prueba y los escenarios E2E que los cubren.
 # Fecha de creación: 2026-10-20
 # Última actualización: 2026-10-21
 # Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
@@ -11,9 +11,16 @@
 #   Los RNF tienen un solo criterio en la especificación; cuando ese criterio contiene varias
 #   condiciones separadas por ";", cada una recibe su propio número.
 # - descripcion: texto tomado de docs/especificacion-requisitos.md.
-# - niveles: unitaria (JUnit + Mockito, sin Spring), integracion (MockMvc de capa web y
-#   @SpringBootTest con PostgreSQL en Testcontainers), e2e (Playwright / Selenium) y carga (k6).
+# - niveles: unitaria (JUnit + Mockito, sin Spring, en el backend; Vitest + Testing Library con los
+#   servicios simulados, en el frontend), integracion (MockMvc de capa web y @SpringBootTest con
+#   PostgreSQL en Testcontainers), e2e (Playwright / Selenium) y carga (k6).
 # - observacion: aclara cuándo la funcionalidad aún no existe o la prueba cubre solo una parte.
+# - e2e: escenarios de e2e/playwright y e2e/selenium que verifican el criterio (los mismos en las dos
+#   herramientas); cada escenario lleva en su nombre el id del escenario y los ids de sus criterios.
+# - Criterios derivados (sufijo D<n>, por ejemplo CA-RF-SEG-001-D1): no están en la lista de criterios
+#   de la especificación, pero se desprenden de su flujo principal, de la matriz 2.2 o de las reglas
+#   del proyecto (internacionalización). Se agregan para que todo escenario E2E tenga un criterio
+#   verificable; el campo origen indica de dónde sale cada uno.
 # - Cada prueba que verifica un criterio lleva su id al inicio del nombre visible, por ejemplo
 #   "[CA-RF-PRO-001-2] rechaza producto sin marca".
 #
@@ -27,16 +34,26 @@ criterios:
     requisito: RF-PRO-001
     descripcion: Un producto válido queda registrado y puede consultarse.
     niveles: [unitaria, integracion, e2e]
+    e2e: [E2E-02]
 
   - id: CA-RF-PRO-001-2
     requisito: RF-PRO-001
     descripcion: Se rechaza un producto sin marca, sin unidad base, sin tarifa de IVA o con garantía sin plazo.
     niveles: [unitaria, integracion, e2e]
+    e2e: [E2E-03]
 
   - id: CA-RF-PRO-001-3
     requisito: RF-PRO-001
     descripcion: Se rechaza un duplicado de nombre y marca, indicando la causa.
     niveles: [unitaria, integracion, e2e]
+    e2e: [E2E-07]
+
+  - id: CA-RF-PRO-001-D1
+    requisito: RF-PRO-001
+    descripcion: Un producto registrado puede editarse y los cambios quedan visibles en la consulta.
+    origen: Matriz 2.2, operación "Crear y editar productos y presentaciones".
+    niveles: [e2e]
+    e2e: [E2E-04]
 
   # ------------------------------------------------------------------ RF-PRO-003 Buscar y consultar productos
   - id: CA-RF-PRO-003-1
@@ -55,6 +72,26 @@ criterios:
     requisito: RF-PRO-003
     descripcion: Un vendedor no ve costos.
     niveles: [unitaria, integracion, e2e]
+    e2e: [E2E-08]
+
+  - id: CA-RF-PRO-003-D1
+    requisito: RF-PRO-003
+    descripcion: >-
+      La búsqueda por nombre, sin distinguir mayúsculas, y los filtros por categoría y estado devuelven
+      solo los productos que cumplen todos los criterios; sin coincidencias se informa que no hay resultados.
+    origen: Descripción y pasos 1 y 2 del flujo principal de RF-PRO-003.
+    niveles: [e2e]
+    e2e: [E2E-05]
+
+  # ------------------------------------------------------------------ RF-CFG-001 Configuración y catálogos
+  - id: CA-RF-CFG-001-3
+    requisito: RF-CFG-001
+    descripcion: Un elemento de catálogo en uso no se elimina; solo se desactiva.
+    niveles: [e2e]
+    e2e: [E2E-06]
+    observacion: >-
+      Por ahora cubre el producto (DELETE /api/v1/productos/{id} lo deja INACTIVO, previa confirmación en la
+      interfaz); marcas, categorías y motivos se agregarán con la administración de RF-CFG-001.
 
   # ------------------------------------------------------------------ RF-SEG-001 Usuarios, roles y sesión
   - id: CA-RF-SEG-001-1
@@ -66,11 +103,21 @@ criterios:
     requisito: RF-SEG-001
     descripcion: Un usuario sin permiso no ejecuta la operación, ni por interfaz ni por API.
     niveles: [integracion, e2e]
+    e2e: [E2E-08]
 
   - id: CA-RF-SEG-001-3
     requisito: RF-SEG-001
     descripcion: Los usuarios no se eliminan, solo se desactivan; una cuenta desactivada no inicia sesión.
     niveles: [unitaria, integracion, e2e]
+
+  - id: CA-RF-SEG-001-D1
+    requisito: RF-SEG-001
+    descripcion: >-
+      Con usuario y contraseña válidos el sistema inicia la sesión y muestra el nombre del usuario; con
+      credenciales inválidas la rechaza con un aviso y no da acceso.
+    origen: Pasos 1 y 2 del flujo principal de RF-SEG-001.
+    niveles: [e2e]
+    e2e: [E2E-01]
 
   # ------------------------------------------------------------------ RF-SEG-002 Auditoría
   - id: CA-RF-SEG-002-1
@@ -96,6 +143,14 @@ criterios:
     requisito: RNF-SEG-001
     descripcion: Toda ruta protegida responde 401 sin token.
     niveles: [integracion, e2e]
+    e2e: [E2E-09]
+
+  - id: CA-RNF-SEG-001-D1
+    requisito: RNF-SEG-001
+    descripcion: Una página protegida abierta sin sesión lleva al inicio de sesión y no muestra su contenido.
+    origen: Requisito de RNF-SEG-001 ("Todo acceso exige sesión autenticada"), aplicado a la interfaz.
+    niveles: [e2e]
+    e2e: [E2E-09]
 
   - id: CA-RNF-SEG-001-2
     requisito: RNF-SEG-001
@@ -158,12 +213,25 @@ criterios:
     requisito: RNF-INT-002
     descripcion: Cada regla de validación muestra campo y causa.
     niveles: [unitaria, integracion, e2e]
+    e2e: [E2E-03]
 
   - id: CA-RNF-INT-003-1
     requisito: RNF-INT-003
     descripcion: Moneda como $ 12.350, fechas dd/mm/aaaa, zona horaria America/Bogota.
     niveles: [unitaria, e2e]
-    observacion: El backend formatea fechas en mensajes (bloqueo de cuenta); moneda y fechas de pantalla van en e2e.
+    e2e: [E2E-10]
+    observacion: >-
+      El backend formatea fechas en mensajes (bloqueo de cuenta); E2E-10 verifica la moneda en pantalla
+      ($ 18.000). Las fechas en pantalla se verificarán cuando una página las muestre.
+
+  - id: CA-RNF-INT-003-D1
+    requisito: RNF-INT-003
+    descripcion: >-
+      La interfaz se muestra en español por defecto y puede cambiarse a inglés; la elección se conserva al
+      recargar la página y al cerrar la sesión.
+    origen: Requisito de RNF-INT-003 (interfaz en español) y regla de internacionalización del proyecto.
+    niveles: [e2e]
+    e2e: [E2E-10]
 
   # ------------------------------------------------------------------ RNF de mantenibilidad
   - id: CA-RNF-MAN-001-1
