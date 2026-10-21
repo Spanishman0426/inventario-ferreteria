@@ -9,7 +9,48 @@
     "unidad": "Base unit",
     "iva": "VAT",
     "costo": "Last cost (base unit)",
-    "estado": "Status"
+    "estado": "Status",
+    "acciones": "Actions"
   },
-  "estado": { "ACTIVO": "Active", "INACTIVO": "Inactive" }
+  "estado": { "ACTIVO": "Active", "INACTIVO": "Inactive" },
+  "filtros": {
+    "categoria": "Category",
+    "estado": "Status",
+    "todas": "All",
+    "todos": "All"
+  },
+  "acciones": {
+    "nuevo": "New product",
+    "editar": "Edit {{nombre}}",
+    "desactivar": "Deactivate {{nombre}}",
+    "guardar": "Save"
+  },
+  "formulario": {
+    "tituloCrear": "New product",
+    "tituloEditar": "Edit product",
+    "nombre": "Name",
+    "descripcion": "Description",
+    "categoria": "Category",
+    "marca": "Brand",
+    "unidadBase": "Base unit",
+    "tarifaIva": "VAT rate",
+    "porcentajeIncremento": "Markup percentage",
+    "control": "Control type",
+    "plazoGarantiaMeses": "Warranty period (months)"
+  },
+  "control": {
+    "NINGUNO": "None",
+    "VENCIMIENTO": "Expiration",
+    "GARANTIA": "Warranty"
+  },
+  "desactivar": {
+    "titulo": "Deactivate the product?",
+    "mensaje": "“{{nombre}}” will no longer be active. You can reactivate it by editing it.",
+    "confirmar": "Deactivate"
+  },
+  "notificaciones": {
+    "creado": "Product “{{nombre}}” registered.",
+    "actualizado": "Product “{{nombre}}” updated.",
+    "desactivado": "Product “{{nombre}}” deactivated."
+  }
 }

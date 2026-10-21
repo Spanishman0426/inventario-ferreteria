@@ -9,7 +9,48 @@
     "unidad": "Unidad base",
     "iva": "IVA",
     "costo": "Último costo (unidad base)",
-    "estado": "Estado"
+    "estado": "Estado",
+    "acciones": "Acciones"
   },
-  "estado": { "ACTIVO": "Activo", "INACTIVO": "Inactivo" }
+  "estado": { "ACTIVO": "Activo", "INACTIVO": "Inactivo" },
+  "filtros": {
+    "categoria": "Categoría",
+    "estado": "Estado",
+    "todas": "Todas",
+    "todos": "Todos"
+  },
+  "acciones": {
+    "nuevo": "Nuevo producto",
+    "editar": "Editar {{nombre}}",
+    "desactivar": "Desactivar {{nombre}}",
+    "guardar": "Guardar"
+  },
+  "formulario": {
+    "tituloCrear": "Nuevo producto",
+    "tituloEditar": "Editar producto",
+    "nombre": "Nombre",
+    "descripcion": "Descripción",
+    "categoria": "Categoría",
+    "marca": "Marca",
+    "unidadBase": "Unidad base",
+    "tarifaIva": "Tarifa de IVA",
+    "porcentajeIncremento": "Porcentaje de incremento",
+    "control": "Tipo de control",
+    "plazoGarantiaMeses": "Plazo de garantía (meses)"
+  },
+  "control": {
+    "NINGUNO": "Ninguno",
+    "VENCIMIENTO": "Vencimiento",
+    "GARANTIA": "Garantía"
+  },
+  "desactivar": {
+    "titulo": "¿Desactivar el producto?",
+    "mensaje": "«{{nombre}}» dejará de estar activo. Podrá reactivarlo editándolo.",
+    "confirmar": "Desactivar"
+  },
+  "notificaciones": {
+    "creado": "Producto «{{nombre}}» registrado.",
+    "actualizado": "Producto «{{nombre}}» actualizado.",
+    "desactivado": "Producto «{{nombre}}» desactivado."
+  }
 }
