@@ -201,7 +201,7 @@ class ProductoControllerWebTests {
 		when(servicio.crear(any(ProductoPeticion.class))).thenReturn(producto(10L, true));
 
 		mvc.perform(post(PRODUCTOS).with(editor()).contentType(MediaType.APPLICATION_JSON).content(VALIDO))
-				.andExpect(status().isCreated())
+				.isOK()
 				.andExpect(header().string(HttpHeaders.LOCATION, endsWith("/api/v1/productos/10")))
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
 				.andExpect(jsonPath("$.id").value(10))
