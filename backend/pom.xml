@@ -5,7 +5,7 @@
                (Spring Boot 4, JPA, Flyway, Spring Security con JWT, springdoc-openapi, Testcontainers,
                Javadoc y JaCoCo).
   Fecha de creación: 2026-10-20
-  Última actualización: 2026-10-20
+  Última actualización: 2026-10-21
   Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -31,8 +31,8 @@
 		<jacoco.version>0.8.15</jacoco.version>
 		<!-- Valor vacío por defecto; JaCoCo lo completa con su agente -->
 		<argLine></argLine>
-		<!-- Umbral de cobertura de líneas; se sube a 0.70 en el paso B4 (RNF-MAN-001) -->
-		<jacoco.umbral>0.00</jacoco.umbral>
+		<!-- RNF-MAN-001: cobertura de líneas mínima del backend; jacoco:check hace fallar verify si no se cumple -->
+		<jacoco.umbral>0.70</jacoco.umbral>
 	</properties>
 
 	<dependencies>

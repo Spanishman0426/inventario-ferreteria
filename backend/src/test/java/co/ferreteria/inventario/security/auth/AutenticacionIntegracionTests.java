@@ -2,7 +2,7 @@
  * Nombre: AutenticacionIntegracionTests.java
  * Descripción: Pruebas de inicio de sesión, bloqueo por intentos, token JWT, cabeceras de seguridad y CORS.
  * Fecha de creación: 2026-10-20
- * Última actualización: 2026-10-20
+ * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 package co.ferreteria.inventario.security.auth;
@@ -112,7 +112,7 @@ class AutenticacionIntegracionTests extends PruebaIntegracionApi {
 	}
 
 	@Test
-	@DisplayName("[CA-RF-SEG-001-1] Tras 5 intentos fallidos la cuenta se bloquea 15 minutos, aun con la contraseña correcta")
+	@DisplayName("[CA-RF-SEG-001-1][CA-RNF-SEG-005-2] Tras 5 intentos fallidos la cuenta se bloquea 15 minutos, aun con la contraseña correcta")
 	void bloqueoAlQuintoIntento() throws Exception {
 		for (int intento = 1; intento <= 4; intento++) {
 			login("comprador", "incorrecta123").andExpect(status().isUnauthorized());
@@ -174,7 +174,7 @@ class AutenticacionIntegracionTests extends PruebaIntegracionApi {
 	// ------------------------------------------------------------------ token
 
 	@Test
-	@DisplayName("[RNF-SEG-001] Sin token, una ruta protegida responde 401")
+	@DisplayName("[CA-RNF-SEG-001-1] Sin token, una ruta protegida responde 401")
 	void sinTokenResponde401() throws Exception {
 		mvc.perform(get(ME))
 				.andExpect(status().isUnauthorized())
@@ -183,7 +183,7 @@ class AutenticacionIntegracionTests extends PruebaIntegracionApi {
 	}
 
 	@Test
-	@DisplayName("[RNF-SEG-001] Un token alterado responde 401")
+	@DisplayName("[CA-RNF-SEG-001-1] Un token alterado responde 401")
 	void tokenAlteradoResponde401() throws Exception {
 		String token = usuarios.token("admin");
 		// Se cambia un carácter en medio de la firma (los del final pueden ser solo relleno)
@@ -197,7 +197,7 @@ class AutenticacionIntegracionTests extends PruebaIntegracionApi {
 	}
 
 	@Test
-	@DisplayName("[RNF-SEG-006] Un token vencido responde 401")
+	@DisplayName("[CA-RNF-SEG-006-2] Un token vencido responde 401")
 	void tokenVencidoResponde401() throws Exception {
 		Instant hace = Instant.now().minus(Duration.ofHours(1));
 		JwtClaimsSet claims = JwtClaimsSet.builder()
@@ -224,7 +224,7 @@ class AutenticacionIntegracionTests extends PruebaIntegracionApi {
 	// ------------------------------------------------------------------ cabeceras y CORS
 
 	@Test
-	@DisplayName("[RNF-SEG-006] Cabeceras de seguridad: HSTS en HTTPS, nosniff y X-Frame-Options DENY")
+	@DisplayName("[CA-RNF-SEG-006-1] Cabeceras de seguridad: HSTS en HTTPS, nosniff y X-Frame-Options DENY")
 	void cabecerasDeSeguridad() throws Exception {
 		mvc.perform(get(ME).secure(true).header(HttpHeaders.AUTHORIZATION, usuarios.bearer("admin")))
 				.andExpect(status().isOk())

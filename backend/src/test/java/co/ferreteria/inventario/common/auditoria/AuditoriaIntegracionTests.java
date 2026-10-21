@@ -1,16 +1,19 @@
 /**
  * Nombre: AuditoriaIntegracionTests.java
- * Descripción: Pruebas de la auditoría de accesos y de cambios hechos por la API, y de su consulta.
+ * Descripción: Pruebas de la auditoría de accesos y de cambios hechos por la API, de su consulta, de su
+ *              inmutabilidad por SQL y por API, de la ausencia de contraseñas y de la depuración a 24 meses.
  * Fecha de creación: 2026-10-20
- * Última actualización: 2026-10-20
+ * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 package co.ferreteria.inventario.common.auditoria;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -18,6 +21,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +31,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.jayway.jsonpath.JsonPath;
 
@@ -164,6 +169,88 @@ class AuditoriaIntegracionTests extends PruebaIntegracionApi {
 						.param("accion", "BORRAR_TODO"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.codigo").value("VALIDACION"));
+	}
+
+	@Test
+	@DisplayName("[CA-RF-SEG-002-2][CA-RNF-SEG-004-1] Por SQL con el usuario de la aplicación, modificar o borrar un registro de auditoría se rechaza (P0001)")
+	void auditoriaInmutablePorSql() throws Exception {
+		usuarios.token("gerente");
+		long id = ultimoIdAuditoria();
+
+		assertThatThrownBy(() -> jdbc.update("UPDATE auditoria SET accion = 'CREAR' WHERE id = ?", id))
+				.satisfies(e -> assertThat(sqlState(e)).isEqualTo("P0001"));
+		assertThatThrownBy(() -> jdbc.update("DELETE FROM auditoria WHERE id = ?", id))
+				.satisfies(e -> assertThat(sqlState(e)).isEqualTo("P0001"));
+
+		assertThat(jdbc.queryForObject("SELECT accion FROM auditoria WHERE id = ?", String.class, id))
+				.isEqualTo("INICIAR_SESION");
+	}
+
+	@Test
+	@DisplayName("[CA-RF-SEG-002-2][CA-RNF-SEG-004-1] Por API no hay forma de modificar ni borrar la auditoría: 405 y el registro queda igual")
+	void auditoriaInmutablePorApi() throws Exception {
+		String admin = usuarios.bearer("admin");
+		long id = ultimoIdAuditoria();
+
+		mvc.perform(put("/api/v1/auditoria/{id}", id).header(HttpHeaders.AUTHORIZATION, admin)
+						.contentType(MediaType.APPLICATION_JSON).content("{\"accion\":\"CREAR\"}"))
+				.andExpect(status().isMethodNotAllowed())
+				.andExpect(jsonPath("$.codigo").value("METODO_NO_PERMITIDO"));
+		mvc.perform(delete("/api/v1/auditoria/{id}", id).header(HttpHeaders.AUTHORIZATION, admin))
+				.andExpect(status().isMethodNotAllowed());
+
+		assertThat(jdbc.queryForObject("SELECT accion FROM auditoria WHERE id = ?", String.class, id))
+				.isEqualTo("INICIAR_SESION");
+	}
+
+	@Test
+	@DisplayName("[CA-RNF-SEG-001-2] Ni la contraseña ni su hash aparecen en la auditoría, y en usuario solo se guarda el hash BCrypt")
+	void sinContrasenasEnTextoPlano() throws Exception {
+		crearUsuario(usuarios.bearer("admin"));
+		usuarios.token("vendedor");
+
+		assertThat(jdbc.queryForObject("""
+				SELECT count(*) FROM auditoria
+				 WHERE coalesce(valores_antes::text, '') || coalesce(valores_despues::text, '') LIKE '%' || ? || '%'
+				    OR coalesce(valores_antes::text, '') || coalesce(valores_despues::text, '') LIKE '%Clave12345%'
+				    OR coalesce(valores_antes::text, '') || coalesce(valores_despues::text, '') ~ '\\$2[aby]\\$'
+				""", Integer.class, UsuariosPrueba.CONTRASENA)).isZero();
+		assertThat(jdbc.queryForObject(
+				"SELECT count(*) FROM usuario WHERE NOT es_sistema AND password_hash !~ '^\\$2[aby]\\$12\\$'", Integer.class))
+				.as("toda contraseña guardada es un hash BCrypt de fuerza 12").isZero();
+	}
+
+	@Test
+	@Transactional
+	@DisplayName("[CA-RF-SEG-002-3][CA-RNF-SEG-003-2] La depuración elimina el registro de 25 meses, conserva el de 23 y deja constancia DEPURAR")
+	void depuracionAVeinticuatroMeses() {
+		// Se revierte al terminar: las particiones creadas y borradas vuelven a como estaban.
+		jdbc.execute("SELECT fn_crear_particion_auditoria((now() - interval '25 months')::date)");
+		jdbc.execute("SELECT fn_crear_particion_auditoria((now() - interval '23 months')::date)");
+		jdbc.update("""
+				INSERT INTO auditoria (fecha, accion, entidad, entidad_id)
+				VALUES (now() - interval '25 months', 'CREAR', 'prueba_depuracion', 25),
+				       (now() - interval '23 months', 'CREAR', 'prueba_depuracion', 23)
+				""");
+
+		Integer borradas = jdbc.queryForObject("SELECT fn_depurar_auditoria()", Integer.class);
+
+		assertThat(borradas).isPositive();
+		assertThat(jdbc.queryForList("SELECT entidad_id FROM auditoria WHERE entidad = 'prueba_depuracion'", Long.class))
+				.containsExactly(23L);
+		assertThat(jdbc.queryForObject("""
+				SELECT (valores_despues->>'particiones_eliminadas')::int FROM auditoria
+				 WHERE accion = 'DEPURAR' ORDER BY id DESC LIMIT 1
+				""", Integer.class)).isEqualTo(borradas);
+	}
+
+	private static String sqlState(Throwable error) {
+		for (Throwable causa = error; causa != null; causa = causa.getCause()) {
+			if (causa instanceof SQLException sql && sql.getSQLState() != null) {
+				return sql.getSQLState();
+			}
+		}
+		return null;
 	}
 
 	private long crearUsuario(String bearer) throws Exception {

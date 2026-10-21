@@ -1,9 +1,10 @@
 /**
  * Nombre: ProductoIntegracionTests.java
  * Descripción: Pruebas de integración del CRUD de productos: alta, validación, duplicados, búsqueda,
- *              edición, borrado lógico, permisos, costos por rol y mensajes en inglés.
+ *              edición, borrado lógico, ciclo completo por HTTP, auditoría, permisos, costos por rol y
+ *              mensajes en inglés.
  * Fecha de creación: 2026-10-20
- * Última actualización: 2026-10-20
+ * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 package co.ferreteria.inventario.catalogo;
@@ -25,6 +26,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -301,10 +304,70 @@ class ProductoIntegracionTests extends PruebaIntegracionApi {
 				.andExpect(status().isNotFound());
 	}
 
+	@Test
+	@DisplayName("[CA-RF-PRO-001-1] CRUD completo por HTTP con token real: crear, consultar, buscar, editar, inactivar y reactivar")
+	void cicloCompleto() throws Exception {
+		String nombre = nombreNuevo("Nivel");
+		long id = idDe(crear(jefe, peticion(nombre).build()));
+
+		mvc.perform(get(PRODUCTOS + "/" + id).header(HttpHeaders.AUTHORIZATION, jefe))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.nombre").value(nombre))
+				.andExpect(jsonPath("$.estado").value("ACTIVO"));
+		mvc.perform(get(PRODUCTOS).param("q", nombre).header(HttpHeaders.AUTHORIZATION, jefe))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.totalElementos").value(1))
+				.andExpect(jsonPath("$.contenido[0].id").value(id));
+
+		actualizar(id, peticion(nombre + " torpedo").control(ControlProducto.GARANTIA).plazoGarantiaMeses(3).build())
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.nombre").value(nombre + " torpedo"))
+				.andExpect(jsonPath("$.plazoGarantiaMeses").value(3));
+
+		mvc.perform(delete(PRODUCTOS + "/" + id).header(HttpHeaders.AUTHORIZATION, jefe))
+				.andExpect(status().isNoContent());
+		mvc.perform(get(PRODUCTOS + "/" + id).header(HttpHeaders.AUTHORIZATION, jefe))
+				.andExpect(jsonPath("$.estado").value("INACTIVO"));
+
+		actualizar(id, peticion(nombre + " torpedo").estado(EstadoProducto.ACTIVO).build())
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.estado").value("ACTIVO"))
+				.andExpect(jsonPath("$.plazoGarantiaMeses").value(nullValue()));
+	}
+
+	@Test
+	@DisplayName("[CA-RF-SEG-002-1][CA-RNF-SEG-003-1] Editar e inactivar dejan un MODIFICAR cada uno con usuario_id del jefe, IP y valores antes y después")
+	void editarEInactivarQuedanAuditados() throws Exception {
+		String nombre = nombreNuevo("Escuadra");
+		long id = idDe(crear(jefe, peticion(nombre).build()));
+		long antes = ultimoIdAuditoria();
+
+		actualizar(id, peticion(nombre + " 30 cm").build()).andExpect(status().isOk());
+		mvc.perform(delete(PRODUCTOS + "/" + id).header(HttpHeaders.AUTHORIZATION, jefe))
+				.andExpect(status().isNoContent());
+
+		List<Map<String, Object>> filas = jdbc.queryForList("""
+				SELECT accion, usuario_id, host(ip) AS ip, fecha,
+				       valores_antes->>'nombre' AS nombre_antes, valores_despues->>'nombre' AS nombre_despues,
+				       valores_antes->>'activo' AS activo_antes, valores_despues->>'activo' AS activo_despues
+				  FROM auditoria
+				 WHERE id > ? AND entidad = 'producto' AND entidad_id = ?
+				 ORDER BY id
+				""", antes, id);
+		assertThat(filas).hasSize(2);
+		assertThat(filas).allSatisfy(f -> {
+			assertThat(f).containsEntry("accion", "MODIFICAR").containsEntry("ip", IP_LOCAL);
+			assertThat(((Number) f.get("usuario_id")).longValue()).isEqualTo(idUsuario("jefe"));
+			assertThat(f.get("fecha")).isNotNull();
+		});
+		assertThat(filas.get(0)).containsEntry("nombre_antes", nombre).containsEntry("nombre_despues", nombre + " 30 cm");
+		assertThat(filas.get(1)).containsEntry("activo_antes", "true").containsEntry("activo_despues", "false");
+	}
+
 	// ------------------------------------------------------------------ seguridad e idioma
 
 	@Test
-	@DisplayName("[RNF-SEG-002] Vendedor y auditor no crean, editan ni inactivan productos (403); sin token, 401")
+	@DisplayName("[CA-RF-SEG-001-2][CA-RNF-SEG-002-1] Vendedor, auditor y comprador no crean, editan ni inactivan productos (403); sin token, 401")
 	void permisos() throws Exception {
 		for (String usuario : new String[] {"vendedor", "auditor", "comprador"}) {
 			String token = usuarios.bearer(usuario);
@@ -322,7 +385,7 @@ class ProductoIntegracionTests extends PruebaIntegracionApi {
 	}
 
 	@Test
-	@DisplayName("[RNF-INT-002] Los mensajes de validación y conflicto llegan en inglés con Accept-Language: en")
+	@DisplayName("[CA-RNF-INT-002-1] Los mensajes de validación y conflicto llegan en inglés con Accept-Language: en")
 	void mensajesEnIngles() throws Exception {
 		mvc.perform(post(PRODUCTOS).header(HttpHeaders.AUTHORIZATION, jefe).header(HttpHeaders.ACCEPT_LANGUAGE, "en")
 						.contentType(MediaType.APPLICATION_JSON)

@@ -1,0 +1,175 @@
+# Nombre: criterios-aceptacion.yaml
+# Descripción: Catálogo de criterios de aceptación de los requisitos implementados (RF-PRO-001,
+#              RF-PRO-003, RF-SEG-001, RF-SEG-002) y de los RNF de seguridad, interacción y
+#              mantenibilidad que aplican, con los niveles de prueba que los cubren.
+# Fecha de creación: 2026-10-20
+# Última actualización: 2026-10-21
+# Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
+#
+# Convenciones
+# - id: CA-<requisito>-<n>; n sigue el orden en que el criterio aparece en la especificación.
+#   Los RNF tienen un solo criterio en la especificación; cuando ese criterio contiene varias
+#   condiciones separadas por ";", cada una recibe su propio número.
+# - descripcion: texto tomado de docs/especificacion-requisitos.md.
+# - niveles: unitaria (JUnit + Mockito, sin Spring), integracion (MockMvc de capa web y
+#   @SpringBootTest con PostgreSQL en Testcontainers), e2e (Playwright / Selenium) y carga (k6).
+# - observacion: aclara cuándo la funcionalidad aún no existe o la prueba cubre solo una parte.
+# - Cada prueba que verifica un criterio lleva su id al inicio del nombre visible, por ejemplo
+#   "[CA-RF-PRO-001-2] rechaza producto sin marca".
+#
+# No se incluyen: RNF-INT-001 (venta con lector y teclado: ventas aún no implementadas) ni los RNF de
+# eficiencia, fiabilidad y compatibilidad (fuera del alcance de este paso).
+
+criterios:
+
+  # ------------------------------------------------------------------ RF-PRO-001 Registrar producto
+  - id: CA-RF-PRO-001-1
+    requisito: RF-PRO-001
+    descripcion: Un producto válido queda registrado y puede consultarse.
+    niveles: [unitaria, integracion, e2e]
+
+  - id: CA-RF-PRO-001-2
+    requisito: RF-PRO-001
+    descripcion: Se rechaza un producto sin marca, sin unidad base, sin tarifa de IVA o con garantía sin plazo.
+    niveles: [unitaria, integracion, e2e]
+
+  - id: CA-RF-PRO-001-3
+    requisito: RF-PRO-001
+    descripcion: Se rechaza un duplicado de nombre y marca, indicando la causa.
+    niveles: [unitaria, integracion, e2e]
+
+  # ------------------------------------------------------------------ RF-PRO-003 Buscar y consultar productos
+  - id: CA-RF-PRO-003-1
+    requisito: RF-PRO-003
+    descripcion: Un código registrado devuelve exactamente su presentación.
+    niveles: [integracion, e2e, carga]
+    observacion: Pendiente; depende de las presentaciones y códigos de barras (RF-PRO-002), aún no implementados.
+
+  - id: CA-RF-PRO-003-2
+    requisito: RF-PRO-003
+    descripcion: Las existencias mostradas coinciden con la suma de movimientos y cambios de estado.
+    niveles: [integracion, e2e]
+    observacion: Pendiente; la consulta de existencias por estado y lote aún no está implementada.
+
+  - id: CA-RF-PRO-003-3
+    requisito: RF-PRO-003
+    descripcion: Un vendedor no ve costos.
+    niveles: [unitaria, integracion, e2e]
+
+  # ------------------------------------------------------------------ RF-SEG-001 Usuarios, roles y sesión
+  - id: CA-RF-SEG-001-1
+    requisito: RF-SEG-001
+    descripcion: Tras 5 intentos fallidos la cuenta se bloquea 15 minutos.
+    niveles: [unitaria, integracion, e2e]
+
+  - id: CA-RF-SEG-001-2
+    requisito: RF-SEG-001
+    descripcion: Un usuario sin permiso no ejecuta la operación, ni por interfaz ni por API.
+    niveles: [integracion, e2e]
+
+  - id: CA-RF-SEG-001-3
+    requisito: RF-SEG-001
+    descripcion: Los usuarios no se eliminan, solo se desactivan; una cuenta desactivada no inicia sesión.
+    niveles: [unitaria, integracion, e2e]
+
+  # ------------------------------------------------------------------ RF-SEG-002 Auditoría
+  - id: CA-RF-SEG-002-1
+    requisito: RF-SEG-002
+    descripcion: Cada operación auditable genera exactamente un registro en la misma transacción.
+    niveles: [integracion]
+
+  - id: CA-RF-SEG-002-2
+    requisito: RF-SEG-002
+    descripcion: Nadie puede modificar ni borrar un registro de menos de 24 meses.
+    niveles: [integracion]
+
+  - id: CA-RF-SEG-002-3
+    requisito: RF-SEG-002
+    descripcion: Un registro de 25 meses desaparece en la siguiente depuración mensual.
+    niveles: [integracion]
+    observacion: >-
+      Se prueba la función fn_depurar_auditoria de la base; la tarea programada mensual que la invoca
+      aún no está implementada.
+
+  # ------------------------------------------------------------------ RNF de seguridad
+  - id: CA-RNF-SEG-001-1
+    requisito: RNF-SEG-001
+    descripcion: Toda ruta protegida responde 401 sin token.
+    niveles: [integracion, e2e]
+
+  - id: CA-RNF-SEG-001-2
+    requisito: RNF-SEG-001
+    descripcion: Ninguna contraseña se guarda en texto plano.
+    niveles: [integracion]
+
+  - id: CA-RNF-SEG-002-1
+    requisito: RNF-SEG-002
+    descripcion: 100 % de las pruebas de la matriz pasan por interfaz y por API.
+    niveles: [integracion, e2e]
+
+  - id: CA-RNF-SEG-003-1
+    requisito: RNF-SEG-003
+    descripcion: >-
+      Cada operación de prueba genera su registro (usuario, fecha, IP, acción y valores antes y después).
+    niveles: [integracion]
+
+  - id: CA-RNF-SEG-003-2
+    requisito: RNF-SEG-003
+    descripcion: Retención de 24 meses.
+    niveles: [integracion]
+
+  - id: CA-RNF-SEG-004-1
+    requisito: RNF-SEG-004
+    descripcion: >-
+      Los intentos de editar o borrar la auditoría y los documentos confirmados, por API y por SQL con el
+      usuario de la aplicación, son rechazados.
+    niveles: [integracion]
+    observacion: Por ahora cubre la auditoría; los documentos confirmados se agregarán con compras y ventas.
+
+  - id: CA-RNF-SEG-005-1
+    requisito: RNF-SEG-005
+    descripcion: Sin hallazgos altos en pruebas OWASP Top 10.
+    niveles: [e2e]
+    observacion: >-
+      Requiere un escaneo OWASP sobre la aplicación desplegada. El backend ya prueba partes (búsqueda sin
+      inyección de comodines, CORS, cabeceras de seguridad), pero no reemplazan el escaneo.
+
+  - id: CA-RNF-SEG-005-2
+    requisito: RNF-SEG-005
+    descripcion: Bloqueo tras 5 intentos fallidos.
+    niveles: [unitaria, integracion]
+
+  - id: CA-RNF-SEG-006-1
+    requisito: RNF-SEG-006
+    descripcion: HTTPS obligatorio.
+    niveles: [integracion, e2e]
+    observacion: El backend verifica la cabecera HSTS; la redirección a HTTPS depende del despliegue.
+
+  - id: CA-RNF-SEG-006-2
+    requisito: RNF-SEG-006
+    descripcion: La sesión expira tras 30 minutos de inactividad.
+    niveles: [unitaria, integracion, e2e]
+    observacion: >-
+      El backend emite tokens que vencen 30 minutos después de emitidos y rechaza los vencidos; la
+      renovación mientras el usuario está activo se verificará en e2e.
+
+  # ------------------------------------------------------------------ RNF de interacción
+  - id: CA-RNF-INT-002-1
+    requisito: RNF-INT-002
+    descripcion: Cada regla de validación muestra campo y causa.
+    niveles: [unitaria, integracion, e2e]
+
+  - id: CA-RNF-INT-003-1
+    requisito: RNF-INT-003
+    descripcion: Moneda como $ 12.350, fechas dd/mm/aaaa, zona horaria America/Bogota.
+    niveles: [unitaria, e2e]
+    observacion: El backend formatea fechas en mensajes (bloqueo de cuenta); moneda y fechas de pantalla van en e2e.
+
+  # ------------------------------------------------------------------ RNF de mantenibilidad
+  - id: CA-RNF-MAN-001-1
+    requisito: RNF-MAN-001
+    descripcion: Cobertura del backend mayor o igual a 70 %.
+    niveles: [unitaria, integracion]
+    observacion: >-
+      Lo verifica la regla jacoco:check del pom (cobertura de líneas >= 0.70) en ./mvnw verify, no una
+      prueba con nombre.

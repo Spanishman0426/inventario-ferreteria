@@ -3,7 +3,7 @@
  * Descripción: Pruebas de la API de administración de usuarios (alta, validación, desactivación y
  *              protección del último administrador).
  * Fecha de creación: 2026-10-20
- * Última actualización: 2026-10-20
+ * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 package co.ferreteria.inventario.usuario;
@@ -48,7 +48,7 @@ class UsuarioIntegracionTests extends PruebaIntegracionApi {
 	}
 
 	@Test
-	@DisplayName("[RNF-SEG-001] Crear un usuario: 201, sin hash en la respuesta y contraseña guardada con BCrypt fuerza 12")
+	@DisplayName("[CA-RNF-SEG-001-2] Crear un usuario: 201, sin hash en la respuesta y contraseña guardada con BCrypt fuerza 12")
 	void crearUsuario() throws Exception {
 		String nombre = nombreNuevo();
 		String cuerpo = crear(nombre, "Clave12345", "[\"COMPRADOR\"]")

@@ -2,7 +2,7 @@
  * Nombre: CatalogoReferenciaIntegracionTests.java
  * Descripción: Pruebas de las listas de marcas, categorías, unidades de medida y tarifas de IVA para selectores.
  * Fecha de creación: 2026-10-20
- * Última actualización: 2026-10-20
+ * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 package co.ferreteria.inventario.catalogo;
@@ -58,7 +58,7 @@ class CatalogoReferenciaIntegracionTests extends PruebaIntegracionApi {
 	}
 
 	@Test
-	@DisplayName("[RNF-SEG-001] Sin token, las listas responden 401")
+	@DisplayName("[CA-RNF-SEG-001-1] Sin token, las listas responden 401")
 	void sinToken() throws Exception {
 		mvc.perform(get("/api/v1/marcas")).andExpect(status().isUnauthorized());
 	}
