@@ -2,7 +2,7 @@
 # Descripción: Archivos y carpetas que Git no debe versionar (compilados, dependencias,
 #              configuraciones locales de IDE, variables de entorno y certificados).
 # Fecha de creación: 2026-10-20
-# Última actualización: 2026-10-20
+# Última actualización: 2026-10-21
 # Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
 
 # --- Java / Maven ---
@@ -72,3 +72,6 @@ desktop.ini
 
 # --- Backend: keystore HTTPS de desarrollo ---
 backend/certs/
+
+# --- CI: resumen de pruebas generado en local por .github/scripts ---
+resumen-backend.json

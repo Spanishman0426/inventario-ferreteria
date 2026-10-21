@@ -188,6 +188,10 @@
 				<configuration>
 					<!-- @{argLine} conserva el agente de JaCoCo -->
 					<argLine>@{argLine} -Duser.timezone=America/Bogota -Dfile.encoding=UTF-8</argLine>
+					<!-- Los XML de pruebas usan el @DisplayName (con el [CA-...]); el CI los lista en el issue de fallas -->
+					<statelessTestsetReporter implementation="org.apache.maven.plugin.surefire.extensions.junit5.JUnit5Xml30StatelessReporter">
+						<usePhrasedTestCaseMethodName>true</usePhrasedTestCaseMethodName>
+					</statelessTestsetReporter>
 				</configuration>
 			</plugin>
 			<!-- Javadoc: se genera en verify y falla si hay errores de sintaxis -->

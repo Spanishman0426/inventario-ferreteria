@@ -1,0 +1,418 @@
+# Nombre: ci.yml
+# Descripción: Pipeline de integración continua. Detecta qué carpetas cambiaron, ejecuta el backend
+#              (./mvnw verify con Testcontainers, JaCoCo y Javadoc), publica reportes y resumen, y
+#              abre, comenta o cierra un issue con la etiqueta ci-fallo según el resultado de la rama.
+# Fecha de creación: 2026-10-21
+# Última actualización: 2026-10-21
+# Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+# Permisos mínimos por defecto; los jobs que tocan issues piden issues: write por separado
+permissions:
+  contents: read
+
+# Una ejecución nueva de la misma rama y evento cancela la anterior, salvo en main
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  # En un pull request la rama es la de origen; en un push, la rama empujada
+  RAMA: ${{ github.head_ref || github.ref_name }}
+  # SHA del commit probado (en un PR, el último commit de la rama, no el merge temporal)
+  COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  # ---------------------------------------------------------------------------------------------
+  # 1. Detección de cambios: decide qué jobs deben correr
+  # ---------------------------------------------------------------------------------------------
+  cambios:
+    name: Detectar cambios
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read # para saber si la rama tiene un issue ci-fallo abierto
+    outputs:
+      backend: ${{ steps.filtro.outputs.backend }}
+      frontend: ${{ steps.filtro.outputs.frontend }}
+      e2e: ${{ steps.filtro.outputs.e2e }}
+      load_tests: ${{ steps.filtro.outputs.load_tests }}
+      docs_api: ${{ steps.filtro.outputs.docs_api }}
+      todo: ${{ steps.filtro.outputs.todo }}
+    steps:
+      - name: Descargar el repositorio con historial
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Comparar contra la base y clasificar los archivos
+        id: filtro
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENTO: ${{ github.event_name }}
+          BASE_PR: ${{ github.event.pull_request.base.sha }}
+          ANTERIOR: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          todo=false
+          motivo=""
+
+          # En main se ejecuta todo siempre
+          if [ "$EVENTO" = "push" ] && [ "$RAMA" = "main" ]; then
+            todo=true; motivo="push a main"
+          fi
+
+          # Si la rama tiene un issue ci-fallo abierto se ejecuta todo, para poder cerrarlo con certeza
+          marca="<!-- ci-fallo-rama: ${RAMA} -->"
+          abiertos=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues?state=open&labels=ci-fallo&per_page=100" \
+            --jq '.[] | select(.pull_request == null) | .body // ""' | grep -cF -- "$marca" || true)
+          if [ "$todo" = false ] && [ "${abiertos:-0}" -gt 0 ]; then
+            todo=true; motivo="la rama tiene un issue ci-fallo abierto"
+          fi
+
+          # Base de comparación: la base del PR, el commit anterior del push o el punto de unión con main
+          if [ "$EVENTO" = "pull_request" ]; then
+            base=$(git merge-base "$BASE_PR" "$COMMIT")
+          elif [ -n "${ANTERIOR:-}" ] && ! [[ "$ANTERIOR" =~ ^0+$ ]] && git cat-file -e "${ANTERIOR}^{commit}" 2>/dev/null; then
+            base="$ANTERIOR"
+          else
+            # Rama nueva o push forzado: se compara con main
+            base=$(git merge-base origin/main "$COMMIT" 2>/dev/null || true)
+          fi
+
+          if [ -z "${base:-}" ]; then
+            todo=true; motivo="${motivo:-no se encontró una base de comparación}"
+            archivos=""
+          else
+            archivos=$(git diff --name-only "$base" "$COMMIT")
+          fi
+
+          cambio() { printf '%s\n' "$archivos" | grep -qE "$1" && echo true || echo false; }
+          backend=$(cambio '^backend/')
+          frontend=$(cambio '^frontend/')
+          e2e=$(cambio '^e2e/')
+          load_tests=$(cambio '^load-tests/')
+          docs_api=$(cambio '^docs/api/')
+          pipeline=$(cambio '^\.github/(workflows|scripts)/')
+
+          # Un cambio en el propio pipeline obliga a probarlo completo
+          if [ "$pipeline" = true ] && [ "$todo" = false ]; then
+            todo=true; motivo="cambió el pipeline"
+          fi
+
+          # El backend también depende de docs/api: ContratoOpenApiTests compara con docs/api/openapi.yaml
+          ejecutar_backend=false
+          if [ "$todo" = true ] || [ "$backend" = true ] || [ "$docs_api" = true ]; then
+            ejecutar_backend=true
+          fi
+
+          {
+            echo "backend=$ejecutar_backend"
+            echo "frontend=$( [ "$todo" = true ] && echo true || echo "$frontend")"
+            echo "e2e=$( [ "$todo" = true ] && echo true || echo "$e2e")"
+            echo "load_tests=$( [ "$todo" = true ] && echo true || echo "$load_tests")"
+            echo "docs_api=$docs_api"
+            echo "todo=$todo"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Detección de cambios"
+            echo ""
+            echo "Base de comparación: \`${base:-ninguna}\` → \`${COMMIT}\`"
+            [ "$todo" = true ] && echo "" && echo "Se ejecutan todos los jobs: ${motivo}."
+            echo ""
+            echo "| Carpeta | Cambió |"
+            echo "| --- | --- |"
+            echo "| backend/ | $backend |"
+            echo "| frontend/ | $frontend |"
+            echo "| e2e/ | $e2e |"
+            echo "| load-tests/ | $load_tests |"
+            echo "| docs/api/ | $docs_api |"
+            echo "| .github/ (pipeline) | $pipeline |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------------------------
+  # 2. Backend: compilación, pruebas (Testcontainers), JaCoCo y Javadoc
+  # ---------------------------------------------------------------------------------------------
+  backend:
+    name: Backend (mvnw verify)
+    needs: cambios
+    if: needs.cambios.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v7
+
+      - name: Instalar Java 21 Temurin con caché de Maven
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      # Las pruebas fallidas no detienen Maven, así JaCoCo y Javadoc se generan igual;
+      # el paso "Fallar si hubo pruebas fallidas" marca el job como fallido al final.
+      # Un error de compilación, de Javadoc o de cobertura menor al 70 % sí detiene este paso.
+      - name: Ejecutar ./mvnw verify
+        run: ./mvnw --batch-mode --no-transfer-progress verify -Dmaven.test.failure.ignore=true
+
+      - name: Resumir pruebas y cobertura
+        id: resumen
+        if: ${{ !cancelled() }}
+        working-directory: .
+        run: >-
+          python3 .github/scripts/resumen_pruebas_backend.py
+          --surefire backend/target/surefire-reports
+          --jacoco backend/target/site/jacoco/jacoco.csv
+          --umbral 0.70
+          --salida-json resumen-backend.json
+
+      - name: Publicar resumen para el job reportar-fallas
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: resumen-backend
+          path: resumen-backend.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Publicar reportes de pruebas
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: reportes-pruebas-backend
+          path: backend/target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Publicar reporte de cobertura JaCoCo
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: cobertura-jacoco-backend
+          path: backend/target/site/jacoco/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Publicar Javadoc
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: javadoc-backend
+          path: backend/target/reports/apidocs/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Fallar si hubo pruebas fallidas
+        if: ${{ !cancelled() && steps.resumen.outputs.fallidas != '0' }}
+        working-directory: .
+        env:
+          FALLIDAS: ${{ steps.resumen.outputs.fallidas }}
+        run: |
+          echo "::error::Fallaron ${FALLIDAS:-?} pruebas del backend; ver el Job Summary y el artefacto reportes-pruebas-backend."
+          exit 1
+
+  # ---------------------------------------------------------------------------------------------
+  # 3. Reportar fallas: crea o comenta el issue ci-fallo de la rama
+  # ---------------------------------------------------------------------------------------------
+  reportar-fallas:
+    name: Reportar fallas
+    needs: [cambios, backend]
+    # Solo si algún job falló, y solo en push: el issue sigue el estado de la rama. Un pull request
+    # ya muestra su resultado en sus checks (y desde un fork el token no puede escribir issues).
+    if: failure() && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    # Dos ejecuciones de la misma rama (por ejemplo, pushes seguidos a main) se turnan para no crear dos issues
+    concurrency:
+      group: ci-issue-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: false
+    steps:
+      - name: Descargar el resumen del backend
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: resumen-backend
+
+      - name: Crear o comentar el issue ci-fallo
+        uses: actions/github-script@v9
+        env:
+          RESULTADOS: ${{ toJSON(needs) }}
+        with:
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const rama = process.env.RAMA;
+            const sha = process.env.COMMIT;
+            const marca = `<!-- ci-fallo-rama: ${rama} -->`;
+            const urlEjecucion = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const evento = context.eventName === 'pull_request'
+              ? `pull request #${context.payload.pull_request.number}`
+              : 'push';
+
+            // Autor del commit probado
+            let autor = 'desconocido';
+            try {
+              const { data } = await github.rest.repos.getCommit({ owner, repo, ref: sha });
+              const nombre = data.commit?.author?.name ?? 'desconocido';
+              autor = data.author?.login ? `${nombre} (@${data.author.login})` : nombre;
+            } catch (error) {
+              core.warning(`No se pudo leer el autor del commit: ${error.message}`);
+            }
+
+            // Resultado de cada job
+            const resultados = JSON.parse(process.env.RESULTADOS);
+            const iconos = { success: '✅', failure: '❌', cancelled: '⚪', skipped: '⏭️' };
+            const filasJobs = Object.entries(resultados)
+              .map(([job, r]) => `| ${job} | ${iconos[r.result] ?? ''} ${r.result} |`)
+              .join('\n');
+
+            // Pruebas fallidas del backend
+            let seccionPruebas;
+            if (fs.existsSync('resumen-backend.json')) {
+              const resumen = JSON.parse(fs.readFileSync('resumen-backend.json', 'utf8'));
+              const celda = (t) => String(t).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+              if (resumen.reportes === 0) {
+                seccionPruebas = 'No hay reportes de pruebas: la compilación falló antes de ejecutarlas. Revisa el log del job backend.';
+              } else if (resumen.fallas.length === 0) {
+                seccionPruebas = `Las ${resumen.total} pruebas pasaron; la falla está en otro paso (Javadoc, cobertura mínima o compilación). ` +
+                  `Cobertura de líneas: ${resumen.cobertura_lineas === null ? 'sin reporte' : (resumen.cobertura_lineas * 100).toFixed(1) + ' %'}.`;
+              } else {
+                const filas = resumen.fallas.slice(0, 50).map((f) =>
+                  `| ${celda(f.clase.split('.').pop())} | ${celda(f.prueba)} | ${celda(f.mensaje)} |`);
+                seccionPruebas = `${resumen.fallidas} de ${resumen.total} pruebas fallaron:\n\n` +
+                  '| Clase | Prueba | Mensaje |\n| --- | --- | --- |\n' + filas.join('\n') +
+                  (resumen.fallas.length > 50 ? `\n\n…y ${resumen.fallas.length - 50} más en el artefacto reportes-pruebas-backend.` : '');
+              }
+            } else {
+              seccionPruebas = 'El job backend no produjo resumen de pruebas (no se ejecutó o falló antes). Revisa el log de la ejecución.';
+            }
+
+            const detalle = [
+              `| Dato | Valor |`,
+              `| --- | --- |`,
+              `| Rama | \`${rama}\` |`,
+              `| Commit | [\`${sha.substring(0, 7)}\`](${context.serverUrl}/${owner}/${repo}/commit/${sha}) |`,
+              `| Autor del commit | ${autor} |`,
+              `| Disparado por | @${context.actor} (${evento}) |`,
+              `| Ejecución | [${context.workflow} #${context.runNumber}](${urlEjecucion}) |`,
+              '',
+              '### Jobs',
+              '',
+              '| Job | Resultado |',
+              '| --- | --- |',
+              filasJobs,
+              '',
+              '### Pruebas fallidas',
+              '',
+              seccionPruebas,
+            ].join('\n');
+
+            // Etiqueta ci-fallo (se crea la primera vez)
+            try {
+              await github.rest.issues.getLabel({ owner, repo, name: 'ci-fallo' });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              await github.rest.issues.createLabel({
+                owner, repo, name: 'ci-fallo', color: 'd73a4a',
+                description: 'El pipeline de CI falló en una rama',
+              });
+            }
+
+            // ¿Ya hay un issue abierto para esta rama?
+            const abiertos = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', labels: 'ci-fallo', per_page: 100,
+            });
+            const existente = abiertos.find((i) => !i.pull_request && (i.body ?? '').includes(marca));
+
+            let numero;
+            if (existente) {
+              numero = existente.number;
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: numero,
+                body: `## ❌ La rama sigue fallando\n\n${detalle}`,
+              });
+              core.notice(`Se comentó el issue #${numero}.`);
+            } else {
+              const { data } = await github.rest.issues.create({
+                owner, repo,
+                title: `CI falló en la rama ${rama}`,
+                labels: ['ci-fallo'],
+                body: `${marca}\n## ❌ El pipeline de CI falló\n\n${detalle}\n\n` +
+                  '_Este issue se comenta en cada nueva falla de la rama y se cierra solo cuando la rama vuelva a pasar._',
+              });
+              numero = data.number;
+              core.notice(`Se creó el issue #${numero}.`);
+            }
+
+            // Asignar al autor del push (si no tiene acceso al repositorio, GitHub lo ignora)
+            try {
+              await github.rest.issues.addAssignees({ owner, repo, issue_number: numero, assignees: [context.actor] });
+            } catch (error) {
+              core.warning(`No se pudo asignar a @${context.actor}: ${error.message}`);
+            }
+
+  # ---------------------------------------------------------------------------------------------
+  # 4. Cerrar fallas: si la rama vuelve a pasar, comenta y cierra su issue ci-fallo
+  # ---------------------------------------------------------------------------------------------
+  cerrar-fallas:
+    name: Cerrar issue de fallas
+    needs: [cambios, backend]
+    # Ningún job falló ni se canceló. Si la rama tenía un issue abierto, "cambios" forzó todos los jobs,
+    # así que un job omitido aquí no oculta una falla anterior.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    concurrency:
+      group: ci-issue-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: false
+    steps:
+      - name: Comentar y cerrar el issue ci-fallo de la rama
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const rama = process.env.RAMA;
+            const sha = process.env.COMMIT;
+            const marca = `<!-- ci-fallo-rama: ${rama} -->`;
+            const abiertos = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', labels: 'ci-fallo', per_page: 100,
+            });
+            const issues = abiertos.filter((i) => !i.pull_request && (i.body ?? '').includes(marca));
+            if (issues.length === 0) {
+              core.info(`La rama ${rama} no tiene issues ci-fallo abiertos.`);
+              return;
+            }
+            const urlEjecucion = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            for (const issue of issues) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `## ✅ La rama \`${rama}\` vuelve a pasar\n\n` +
+                  `Commit [\`${sha.substring(0, 7)}\`](${context.serverUrl}/${owner}/${repo}/commit/${sha}) · ` +
+                  `[${context.workflow} #${context.runNumber}](${urlEjecucion}). Se cierra el issue.`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: issue.number, state: 'closed', state_reason: 'completed',
+              });
+              core.notice(`Se cerró el issue #${issue.number}.`);
+            }
