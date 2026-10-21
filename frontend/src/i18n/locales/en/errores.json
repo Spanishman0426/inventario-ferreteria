@@ -1,0 +1,18 @@
+{
+  "VALIDACION": "One or more fields do not meet the validation rules.",
+  "SOLICITUD_INVALIDA": "The request is not valid.",
+  "NO_AUTENTICADO": "You must sign in to perform this operation.",
+  "CREDENCIALES_INVALIDAS": "The username or password is incorrect.",
+  "CUENTA_BLOQUEADA": "The account is locked due to failed attempts.",
+  "ACCESO_DENEGADO": "Your role is not allowed to perform this operation.",
+  "NO_ENCONTRADO": "The requested resource does not exist.",
+  "METODO_NO_PERMITIDO": "The operation is not allowed.",
+  "CONFLICTO_UNICIDAD": "A record with that data already exists.",
+  "CONFLICTO_REFERENCIA": "The record is in use by other data.",
+  "OPERACION_NO_PERMITIDA": "The operation is not allowed by a system rule.",
+  "REGLA_INTEGRIDAD": "The data does not meet an integrity rule.",
+  "REGLA_NEGOCIO": "The operation does not meet a business rule.",
+  "ERROR_INTERNO": "An unexpected server error occurred.",
+  "RED": "Could not connect to the server. Check your connection.",
+  "DESCONOCIDO": "An unexpected error occurred."
+}

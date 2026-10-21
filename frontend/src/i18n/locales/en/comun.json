@@ -1,0 +1,26 @@
+{
+  "app": { "titulo": "Hardware Store Inventory" },
+  "menu": { "productos": "Products", "navegacion": "Main navigation" },
+  "idioma": { "seleccionar": "Change language", "es": "Español", "en": "English" },
+  "sesion": {
+    "salir": "Sign out",
+    "confirmarSalidaTitulo": "Sign out?",
+    "confirmarSalidaMensaje": "You will need to sign in again to keep working.",
+    "cargando": "Checking your session…"
+  },
+  "acciones": {
+    "confirmar": "Confirm",
+    "cancelar": "Cancel",
+    "buscar": "Search",
+    "cerrar": "Close",
+    "volverInicio": "Back to home"
+  },
+  "accesoDenegado": {
+    "titulo": "Access denied",
+    "mensaje": "Your role is not allowed to view this page."
+  },
+  "noEncontrado": {
+    "titulo": "Page not found",
+    "mensaje": "The address you are looking for does not exist."
+  }
+}

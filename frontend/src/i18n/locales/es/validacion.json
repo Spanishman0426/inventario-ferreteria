@@ -1,0 +1,4 @@
+{
+  "requerido": "Este campo es obligatorio.",
+  "maximo": "Máximo {{max}} caracteres."
+}

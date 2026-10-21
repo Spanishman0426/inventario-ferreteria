@@ -1,0 +1,26 @@
+{
+  "app": { "titulo": "Inventario Ferretería" },
+  "menu": { "productos": "Productos", "navegacion": "Navegación principal" },
+  "idioma": { "seleccionar": "Cambiar idioma", "es": "Español", "en": "English" },
+  "sesion": {
+    "salir": "Cerrar sesión",
+    "confirmarSalidaTitulo": "¿Cerrar la sesión?",
+    "confirmarSalidaMensaje": "Tendrá que iniciar sesión de nuevo para seguir trabajando.",
+    "cargando": "Verificando la sesión…"
+  },
+  "acciones": {
+    "confirmar": "Confirmar",
+    "cancelar": "Cancelar",
+    "buscar": "Buscar",
+    "cerrar": "Cerrar",
+    "volverInicio": "Volver al inicio"
+  },
+  "accesoDenegado": {
+    "titulo": "Acceso denegado",
+    "mensaje": "Su rol no tiene permiso para ver esta página."
+  },
+  "noEncontrado": {
+    "titulo": "Página no encontrada",
+    "mensaje": "La dirección que buscó no existe."
+  }
+}

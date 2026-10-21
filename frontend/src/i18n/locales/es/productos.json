@@ -1,0 +1,15 @@
+{
+  "titulo": "Productos",
+  "buscar": "Buscar por nombre",
+  "sinResultados": "No hay productos que coincidan con la búsqueda.",
+  "columnas": {
+    "nombre": "Nombre",
+    "marca": "Marca",
+    "categoria": "Categoría",
+    "unidad": "Unidad base",
+    "iva": "IVA",
+    "costo": "Último costo (unidad base)",
+    "estado": "Estado"
+  },
+  "estado": { "ACTIVO": "Activo", "INACTIVO": "Inactivo" }
+}

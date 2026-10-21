@@ -1,0 +1,9 @@
+# Nombre: .prettierignore
+# Descripción: Archivos que Prettier no formatea.
+# Fecha de creación: 2026-10-21
+# Última actualización: 2026-10-21
+# Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
+dist/
+coverage/
+node_modules/
+package-lock.json
