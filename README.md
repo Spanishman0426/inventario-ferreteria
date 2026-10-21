@@ -48,11 +48,14 @@ inventario-ferreteria/
 ├── database/            Esquema SQL probado, datos de prueba, reportes, pruebas y oráculo
 ├── docs/                Especificación de requisitos, modelo de datos y plan de pruebas de BD
 ├── e2e/
+│   ├── comun/           Entorno, datos y cliente de la API comunes a las dos suites E2E
 │   ├── playwright/      Pruebas de extremo a extremo con Playwright
 │   └── selenium/        Pruebas de extremo a extremo con Selenium WebDriver
 ├── frontend/            Aplicación web en React + Vite
 ├── load-tests/          Pruebas de carga con k6
 ├── scripts/             Scripts de apoyo (Windows y Linux)
+├── docker-compose.e2e.yml  Entorno E2E: PostgreSQL, backend (perfil e2e) y frontend compilado
+├── .env.example         Variables del entorno E2E con valores ficticios
 ├── CLAUDE.md            Reglas de trabajo para la IA
 └── README.md
 ```
@@ -63,6 +66,7 @@ inventario-ferreteria/
 - [Modelo de datos](docs/modelo-datos.md)
 - [Plan y casos de prueba de la base de datos](docs/plan-pruebas-bd.md)
 - [API REST: contrato OpenAPI y ejemplos](docs/api/README.md)
+- [Pruebas end-to-end (Playwright y Selenium)](docs/pruebas-e2e.md)
 
 ## Cómo ejecutar
 
@@ -176,7 +180,16 @@ Pendiente: se completa en la fase de frontend.
 
 ### Pruebas E2E
 
-Pendiente: se completa en la fase de pruebas de extremo a extremo.
+Requieren Docker Desktop, Node.js 24 y Google Chrome. Detalle de escenarios, criterios y reportes en
+[docs/pruebas-e2e.md](docs/pruebas-e2e.md).
+
+```powershell
+Copy-Item .env.example .env        # una sola vez; cambiar los valores
+docker compose -f docker-compose.e2e.yml up -d --build --wait
+cd e2e/playwright; npm ci; npx playwright install chromium; npm test
+cd ../selenium; npm ci; npm test
+cd ../..; docker compose -f docker-compose.e2e.yml down
+```
 
 ### Pruebas de carga
 

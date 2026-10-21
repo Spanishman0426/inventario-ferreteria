@@ -46,6 +46,7 @@ export default function LanguageSelector({ color = 'inherit' }) {
         aria-haspopup="menu"
         aria-controls={ancla ? 'menu-idioma' : undefined}
         aria-expanded={ancla ? 'true' : undefined}
+        data-testid="idioma-selector"
       >
         {actual?.toUpperCase()}
       </Button>
@@ -56,6 +57,7 @@ export default function LanguageSelector({ color = 'inherit' }) {
             selected={idioma === actual}
             lang={idioma}
             onClick={() => elegir(idioma)}
+            data-testid={`idioma-opcion-${idioma}`}
           >
             {t(`idioma.${idioma}`)}
           </MenuItem>

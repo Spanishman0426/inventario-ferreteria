@@ -1,0 +1,14 @@
+# Nombre: .dockerignore
+# Descripción: Archivos que no se envían al construir la imagen del backend (compilados, secretos y
+#              certificados locales).
+# Fecha de creación: 2026-10-21
+# Última actualización: 2026-10-21
+# Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
+
+target/
+certs/
+.env
+.env.*
+*.iml
+.idea/
+.vscode/

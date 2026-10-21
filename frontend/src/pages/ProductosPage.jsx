@@ -151,7 +151,7 @@ export default function ProductosPage() {
   return (
     <Stack spacing={2}>
       <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h5" component="h1">
+        <Typography variant="h5" component="h1" data-testid="productos-titulo">
           {t('titulo')}
         </Typography>
         {puedeEditar && (
@@ -232,7 +232,11 @@ export default function ProductosPage() {
                 <TableCell>{t('columnas.categoria')}</TableCell>
                 <TableCell>{t('columnas.unidad')}</TableCell>
                 <TableCell align="right">{t('columnas.iva')}</TableCell>
-                {verCostos && <TableCell align="right">{t('columnas.costo')}</TableCell>}
+                {verCostos && (
+                  <TableCell align="right" data-testid="productos-columna-costo">
+                    {t('columnas.costo')}
+                  </TableCell>
+                )}
                 <TableCell>{t('columnas.estado')}</TableCell>
                 {puedeEditar && <TableCell align="right">{t('columnas.acciones')}</TableCell>}
               </TableRow>
@@ -240,13 +244,19 @@ export default function ProductosPage() {
             <TableBody>
               {resultado.contenido.map((producto) => (
                 <TableRow key={producto.id} hover data-testid={`producto-fila-${producto.id}`}>
-                  <TableCell>{producto.nombre}</TableCell>
+                  <TableCell data-testid={`producto-nombre-${producto.id}`}>
+                    {producto.nombre}
+                  </TableCell>
                   <TableCell>{producto.marca?.nombre}</TableCell>
-                  <TableCell>{producto.categoria?.nombre}</TableCell>
+                  <TableCell data-testid={`producto-categoria-${producto.id}`}>
+                    {producto.categoria?.nombre}
+                  </TableCell>
                   <TableCell>{producto.unidadBase?.codigo}</TableCell>
                   <TableCell align="right">{producto.tarifaIva?.porcentaje} %</TableCell>
                   {verCostos && (
-                    <TableCell align="right">{formatearMoneda(producto.ultimoCostoBase)}</TableCell>
+                    <TableCell align="right" data-testid={`producto-costo-${producto.id}`}>
+                      {formatearMoneda(producto.ultimoCostoBase)}
+                    </TableCell>
                   )}
                   <TableCell>
                     <Chip

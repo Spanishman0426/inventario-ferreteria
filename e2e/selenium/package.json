@@ -1,0 +1,16 @@
+{
+  "name": "inventario-ferreteria-e2e-selenium",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pruebas end-to-end del frontend con Selenium WebDriver y Mocha (Page Object y data-testid)",
+  "author": "Juan Pablo Artunduaga Pérez (generado con Claude Code)",
+  "type": "module",
+  "scripts": {
+    "test": "mocha"
+  },
+  "devDependencies": {
+    "mocha": "^11.8.0",
+    "mocha-junit-reporter": "^2.2.1",
+    "selenium-webdriver": "^4.51.0"
+  }
+}

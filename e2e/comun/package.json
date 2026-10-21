@@ -1,0 +1,8 @@
+{
+  "name": "inventario-ferreteria-e2e-comun",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Código común de las pruebas E2E (entorno, datos y cliente de la API); lo importan e2e/playwright y e2e/selenium",
+  "author": "Juan Pablo Artunduaga Pérez (generado con Claude Code)",
+  "type": "module"
+}

@@ -41,7 +41,7 @@ export default function ProtectedRoute({ permiso, children }) {
   }
   if (permiso && !tienePermiso(permiso)) {
     return (
-      <Alert severity="warning" sx={{ m: 3 }}>
+      <Alert severity="warning" sx={{ m: 3 }} data-testid="acceso-denegado">
         <AlertTitle>{t('accesoDenegado.titulo')}</AlertTitle>
         {t('accesoDenegado.mensaje')}
       </Alert>

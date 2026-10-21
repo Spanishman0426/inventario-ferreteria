@@ -1,0 +1,17 @@
+{
+  "name": "inventario-ferreteria-e2e-playwright",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pruebas end-to-end del frontend con Playwright (Page Object y data-testid)",
+  "author": "Juan Pablo Artunduaga Pérez (generado con Claude Code)",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:con-interfaz": "playwright test --headed",
+    "reporte": "playwright show-report reportes/html",
+    "navegadores": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
+  }
+}
