@@ -1,0 +1,15 @@
+{
+  "titulo": "Products",
+  "buscar": "Search by name",
+  "sinResultados": "No products match the search.",
+  "columnas": {
+    "nombre": "Name",
+    "marca": "Brand",
+    "categoria": "Category",
+    "unidad": "Base unit",
+    "iva": "VAT",
+    "costo": "Last cost (base unit)",
+    "estado": "Status"
+  },
+  "estado": { "ACTIVO": "Active", "INACTIVO": "Inactive" }
+}

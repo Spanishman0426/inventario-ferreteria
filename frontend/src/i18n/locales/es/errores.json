@@ -1,0 +1,18 @@
+{
+  "VALIDACION": "Uno o más campos no cumplen las reglas de validación.",
+  "SOLICITUD_INVALIDA": "La solicitud no es válida.",
+  "NO_AUTENTICADO": "Debe iniciar sesión para realizar esta operación.",
+  "CREDENCIALES_INVALIDAS": "El usuario o la contraseña no son correctos.",
+  "CUENTA_BLOQUEADA": "La cuenta está bloqueada por intentos fallidos.",
+  "ACCESO_DENEGADO": "Su rol no tiene permiso para realizar esta operación.",
+  "NO_ENCONTRADO": "El recurso solicitado no existe.",
+  "METODO_NO_PERMITIDO": "La operación no está permitida.",
+  "CONFLICTO_UNICIDAD": "Ya existe un registro con esos datos.",
+  "CONFLICTO_REFERENCIA": "El registro está en uso por otros datos.",
+  "OPERACION_NO_PERMITIDA": "La operación no está permitida por una regla del sistema.",
+  "REGLA_INTEGRIDAD": "Los datos no cumplen una regla de integridad.",
+  "REGLA_NEGOCIO": "La operación no cumple una regla de negocio.",
+  "ERROR_INTERNO": "Ocurrió un error inesperado en el servidor.",
+  "RED": "No fue posible conectarse con el servidor. Revise su conexión.",
+  "DESCONOCIDO": "Ocurrió un error inesperado."
+}
