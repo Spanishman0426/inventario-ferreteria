@@ -13,7 +13,8 @@
 El pipeline está en [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) y se ejecuta en cada **push a
 cualquier rama**, en cada **pull request hacia `main`** y a mano desde la pestaña Actions (**Run workflow**). Prueba
 el backend, el frontend, los flujos end-to-end y la carga de humo, y mide el cumplimiento de los criterios de
-aceptación. El despliegue se agregará en un paso posterior.
+aceptación. Cuando la CI termina con éxito en `main`, el workflow `deploy.yml` despliega a producción
+(Render + Neon); se documenta en [despliegue.md](despliegue.md).
 
 ## 1. Jobs
 

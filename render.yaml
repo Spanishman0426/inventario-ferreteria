@@ -1,0 +1,88 @@
+# Nombre: render.yaml
+# Descripción: Blueprint de Render con los dos servicios de producción: backend (Web Service gratuito con
+#              backend/Dockerfile y perfil prod) y frontend (Static Site gratuito con el build de Vite).
+#              El auto-deploy está apagado: solo despliega .github/workflows/deploy.yml con los Deploy Hooks.
+#              La base de datos es Neon (fuera de Render). Guía completa en docs/despliegue.md.
+# Fecha de creación: 2026-10-21
+# Última actualización: 2026-10-21
+# Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
+#
+# Las variables con "sync: false" son secretos o URLs: Render las pide al crear el Blueprint y nunca se
+# guardan en Git. Los cambios posteriores de esas variables se hacen en el panel de cada servicio.
+
+services:
+  # ---------------------------------------------------------------- backend (Spring Boot)
+  - type: web
+    name: ferreteria-backend
+    runtime: docker
+    plan: free
+    branch: main
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /actuator/health
+    # Solo despliega la CI (Deploy Hook), nunca un push directo
+    autoDeployTrigger: "off"
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      # Neon, endpoint directo (sin -pooler): jdbc:postgresql://<host>/<base>?sslmode=require
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      # Clave aleatoria de 256 bits generada por Render (al menos 32 caracteres)
+      - key: JWT_SECRET
+        generateValue: true
+      # URL pública del frontend, único origen admitido por CORS (sin barra final)
+      - key: FRONTEND_URL
+        sync: false
+      # Primer administrador; solo se usa si no existe ninguno
+      - key: ADMIN_USUARIO
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_CORREO
+        sync: false
+
+  # ---------------------------------------------------------------- frontend (React + Vite)
+  - type: web
+    name: ferreteria-frontend
+    runtime: static
+    branch: main
+    # version.json permite a la verificación de humo saber qué commit quedó publicado
+    buildCommand: >-
+      cd frontend && npm ci --no-audit --no-fund && npm run build &&
+      printf '{"commit":"%s"}\n' "$RENDER_GIT_COMMIT" > dist/version.json
+    staticPublishPath: ./frontend/dist
+    autoDeployTrigger: "off"
+    envVars:
+      # URL pública del backend (sin barra final); Vite la incrusta en el build
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      # Rutas de React Router (/login, /productos, ...): si no existe el archivo, se entrega index.html
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      # Archivos con hash en el nombre: caché larga
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache
+      - path: /version.json
+        name: Cache-Control
+        value: no-cache
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Strict-Transport-Security
+        value: max-age=31536000; includeSubDomains

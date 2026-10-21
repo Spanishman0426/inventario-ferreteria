@@ -1,8 +1,8 @@
 /**
  * Nombre: InicializadorAdministrador.java
- * Descripción: Perfil dev: crea el primer administrador desde variables de entorno si no existe ninguno.
+ * Descripción: Perfiles dev y prod: crea el primer administrador desde variables de entorno si no existe ninguno.
  * Fecha de creación: 2026-10-20
- * Última actualización: 2026-10-20
+ * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 package co.ferreteria.inventario.usuario;
@@ -24,7 +24,7 @@ import org.springframework.util.StringUtils;
 import co.ferreteria.inventario.common.auditoria.ContextoAuditoria;
 
 /**
- * Crea el primer administrador en desarrollo (RF-SEG-001, precondición: "existe al menos un
+ * Crea el primer administrador en desarrollo y en producción (RF-SEG-001, precondición: "existe al menos un
  * administrador creado en la instalación"; modelo de datos, sección 6.1).
  *
  * <p>Si no hay ningún administrador activo, crea uno con {@code ADMIN_USUARIO}, {@code ADMIN_PASSWORD},
@@ -33,7 +33,7 @@ import co.ferreteria.inventario.common.auditoria.ContextoAuditoria;
  * nunca se escribe en el registro.</p>
  */
 @Component
-@Profile("dev")
+@Profile({"dev", "prod"})
 public class InicializadorAdministrador implements ApplicationRunner {
 
 	private static final Logger LOG = LoggerFactory.getLogger(InicializadorAdministrador.class);

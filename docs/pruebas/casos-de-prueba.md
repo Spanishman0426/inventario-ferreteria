@@ -341,11 +341,11 @@
 
 **Criterio.** HTTPS obligatorio.
 
-**Observación.** El backend verifica la cabecera HSTS; la redirección a HTTPS depende del despliegue.
+**Observación.** El backend verifica la cabecera HSTS, también detrás del proxy TLS de Render (perfil prod); el certificado y la redirección a HTTPS los aporta Render (docs/despliegue.md).
 
 | Caso | Nivel | Pasos | Datos | Resultado esperado | Implementado en |
 | --- | --- | --- | --- | --- | --- |
-| CP-RNF-SEG-006-1-01 | Integración | 1. Hacer solicitudes HTTPS (secure) con respuestas 200, 401 y 403, al login y al actuator.<br>2. Hacer la misma solicitud por HTTP plano. | Tokens de admin y vendedor; sin token. | Toda respuesta HTTPS lleva Strict-Transport-Security max-age=31536000 ; includeSubDomains, además de nosniff y X-Frame-Options DENY; por HTTP no se envía HSTS. | [backend/src/test/java/co/ferreteria/inventario/security/SeguridadNoFuncionalIntegracionTests.java](../../backend/src/test/java/co/ferreteria/inventario/security/SeguridadNoFuncionalIntegracionTests.java) (JUnit, 2 menciones)<br>[backend/src/test/java/co/ferreteria/inventario/security/auth/AutenticacionIntegracionTests.java](../../backend/src/test/java/co/ferreteria/inventario/security/auth/AutenticacionIntegracionTests.java) (JUnit, 1 mención) |
+| CP-RNF-SEG-006-1-01 | Integración | 1. Hacer solicitudes HTTPS (secure) con respuestas 200, 401 y 403, al login y al actuator.<br>2. Hacer la misma solicitud por HTTP plano.<br>3. Con el perfil prod, llamar al actuator con X-Forwarded-Proto https, como lo hace el proxy TLS de Render. | Tokens de admin y vendedor; sin token. | Toda respuesta HTTPS lleva Strict-Transport-Security max-age=31536000 ; includeSubDomains, además de nosniff y X-Frame-Options DENY; por HTTP no se envía HSTS; detrás del proxy de Render también se envía HSTS. | [backend/src/test/java/co/ferreteria/inventario/PerfilProdIntegracionTests.java](../../backend/src/test/java/co/ferreteria/inventario/PerfilProdIntegracionTests.java) (JUnit, 1 mención)<br>[backend/src/test/java/co/ferreteria/inventario/security/SeguridadNoFuncionalIntegracionTests.java](../../backend/src/test/java/co/ferreteria/inventario/security/SeguridadNoFuncionalIntegracionTests.java) (JUnit, 2 menciones)<br>[backend/src/test/java/co/ferreteria/inventario/security/auth/AutenticacionIntegracionTests.java](../../backend/src/test/java/co/ferreteria/inventario/security/auth/AutenticacionIntegracionTests.java) (JUnit, 1 mención) |
 
 ### CA-RNF-SEG-006-2
 

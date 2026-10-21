@@ -470,14 +470,17 @@ criterios:
     requisito: RNF-SEG-006
     descripcion: HTTPS obligatorio.
     niveles: [integracion, e2e]
-    observacion: El backend verifica la cabecera HSTS; la redirección a HTTPS depende del despliegue.
+    observacion: >-
+      El backend verifica la cabecera HSTS, también detrás del proxy TLS de Render (perfil prod); el
+      certificado y la redirección a HTTPS los aporta Render (docs/despliegue.md).
     casos:
       - nivel: integracion
         pasos:
           - Hacer solicitudes HTTPS (secure) con respuestas 200, 401 y 403, al login y al actuator.
           - Hacer la misma solicitud por HTTP plano.
+          - Con el perfil prod, llamar al actuator con X-Forwarded-Proto https, como lo hace el proxy TLS de Render.
         datos: Tokens de admin y vendedor; sin token.
-        esperado: Toda respuesta HTTPS lleva Strict-Transport-Security max-age=31536000 ; includeSubDomains, además de nosniff y X-Frame-Options DENY; por HTTP no se envía HSTS.
+        esperado: Toda respuesta HTTPS lleva Strict-Transport-Security max-age=31536000 ; includeSubDomains, además de nosniff y X-Frame-Options DENY; por HTTP no se envía HSTS; detrás del proxy de Render también se envía HSTS.
 
   - id: CA-RNF-SEG-006-2
     requisito: RNF-SEG-006
