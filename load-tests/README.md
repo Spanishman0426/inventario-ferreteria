@@ -44,6 +44,9 @@ docker compose -f docker-compose.e2e.yml up -d --build --wait
 k6 run -e K6_MODO=humo load-tests/productos.js
 ```
 
+En CI lo ejecuta el job `carga-humo` con la imagen `grafana/k6` sobre el entorno que construye el job `e2e` (ver
+[`docs/ci-cd.md`](../docs/ci-cd.md), sección 6). El modo carga no corre en CI: se ejecuta a mano como se indica abajo.
+
 ## Modo carga (volumen de diseño en `ferreteria_carga`)
 
 `datos-volumen.sql` genera con `generate_series` 50.000 productos con 2 presentaciones cada uno (100.000

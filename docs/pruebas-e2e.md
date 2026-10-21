@@ -128,5 +128,6 @@ Las carpetas `reportes/` están en `.gitignore`.
   Mocha 11 hasta que el reportero se actualice.
 - **HTTP dentro de Docker.** El entorno prueba la aplicación, no el certificado; HTTPS (RNF-SEG-006) lo aporta el
   despliegue.
-- **CI.** El entorno funciona igual en los runners Linux de GitHub Actions; el job E2E del pipeline se agrega en
-  un paso posterior (ver [ci-cd.md](ci-cd.md)).
+- **CI.** El job `e2e` del pipeline levanta este mismo entorno en los runners Linux de GitHub Actions, con
+  contraseñas aleatorias en cada ejecución, y publica los reportes HTML, JUnit, capturas y trazas como artefactos
+  (ver [ci-cd.md](ci-cd.md), sección 5).

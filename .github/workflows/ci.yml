@@ -1,7 +1,11 @@
 # Nombre: ci.yml
-# Descripción: Pipeline de integración continua. Detecta qué carpetas cambiaron, ejecuta el backend
-#              (./mvnw verify con Testcontainers, JaCoCo y Javadoc), publica reportes y resumen, y
-#              abre, comenta o cierra un issue con la etiqueta ci-fallo según el resultado de la rama.
+# Descripción: Pipeline de integración continua. Detecta qué carpetas cambiaron y ejecuta solo lo afectado
+#              (todo en main, en pull requests hacia main y en ejecuciones manuales): backend (./mvnw verify
+#              con Testcontainers, JaCoCo y Javadoc), frontend (lint, Vitest con cobertura y build), e2e
+#              (docker-compose.e2e.yml con Playwright y Selenium) y carga-humo (k6). El job criterios calcula
+#              el porcentaje de cumplimiento de los criterios de aceptación, lo publica en el Job Summary y lo
+#              comenta en el pull request. Si algo falla, abre o comenta un issue ci-fallo con el cumplimiento
+#              y los criterios que dejaron de cumplirse, y avisa por webhook si existe NOTIFICACION_WEBHOOK.
 # Fecha de creación: 2026-10-21
 # Última actualización: 2026-10-21
 # Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
@@ -13,8 +17,9 @@ on:
     branches: ['**']
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
-# Permisos mínimos por defecto; los jobs que tocan issues piden issues: write por separado
+# Permisos mínimos por defecto; cada job que necesita más los pide por separado
 permissions:
   contents: read
 
@@ -28,6 +33,10 @@ env:
   RAMA: ${{ github.head_ref || github.ref_name }}
   # SHA del commit probado (en un PR, el último commit de la rama, no el merge temporal)
   COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+  # Archivo del entorno e2e (también lo usa la carga de humo)
+  COMPOSE_E2E: docker-compose.e2e.yml
+  # Imagen de k6 para la carga de humo (versión fija)
+  K6_IMAGEN: grafana/k6:2.3.0
 
 jobs:
   # ---------------------------------------------------------------------------------------------
@@ -44,7 +53,7 @@ jobs:
       backend: ${{ steps.filtro.outputs.backend }}
       frontend: ${{ steps.filtro.outputs.frontend }}
       e2e: ${{ steps.filtro.outputs.e2e }}
-      load_tests: ${{ steps.filtro.outputs.load_tests }}
+      carga: ${{ steps.filtro.outputs.carga }}
       docs_api: ${{ steps.filtro.outputs.docs_api }}
       todo: ${{ steps.filtro.outputs.todo }}
     steps:
@@ -66,9 +75,13 @@ jobs:
           todo=false
           motivo=""
 
-          # En main se ejecuta todo siempre
+          # En main, en pull requests hacia main y en ejecuciones manuales se ejecuta todo
           if [ "$EVENTO" = "push" ] && [ "$RAMA" = "main" ]; then
             todo=true; motivo="push a main"
+          elif [ "$EVENTO" = "pull_request" ]; then
+            todo=true; motivo="pull request hacia main"
+          elif [ "$EVENTO" = "workflow_dispatch" ]; then
+            todo=true; motivo="ejecución manual"
           fi
 
           # Si la rama tiene un issue ci-fallo abierto se ejecuta todo, para poder cerrarlo con certeza
@@ -85,7 +98,7 @@ jobs:
           elif [ -n "${ANTERIOR:-}" ] && ! [[ "$ANTERIOR" =~ ^0+$ ]] && git cat-file -e "${ANTERIOR}^{commit}" 2>/dev/null; then
             base="$ANTERIOR"
           else
-            # Rama nueva o push forzado: se compara con main
+            # Rama nueva, push forzado o ejecución manual: se compara con main
             base=$(git merge-base origin/main "$COMMIT" 2>/dev/null || true)
           fi
 
@@ -102,24 +115,29 @@ jobs:
           e2e=$(cambio '^e2e/')
           load_tests=$(cambio '^load-tests/')
           docs_api=$(cambio '^docs/api/')
-          pipeline=$(cambio '^\.github/(workflows|scripts)/')
+          entorno_e2e=$(cambio '^(docker-compose\.e2e\.yml|\.env\.example)$')
+          pipeline=$(cambio '^\.github/(workflows|scripts)/|^scripts/junit\.mjs$')
 
           # Un cambio en el propio pipeline obliga a probarlo completo
           if [ "$pipeline" = true ] && [ "$todo" = false ]; then
             todo=true; motivo="cambió el pipeline"
           fi
 
+          alguno() { for v in "$@"; do [ "$v" = true ] && { echo true; return; }; done; echo false; }
+
           # El backend también depende de docs/api: ContratoOpenApiTests compara con docs/api/openapi.yaml
-          ejecutar_backend=false
-          if [ "$todo" = true ] || [ "$backend" = true ] || [ "$docs_api" = true ]; then
-            ejecutar_backend=true
-          fi
+          ejecutar_backend=$(alguno "$todo" "$backend" "$docs_api")
+          ejecutar_frontend=$(alguno "$todo" "$frontend")
+          # e2e prueba backend y frontend juntos; un cambio en load-tests/ también lo activa porque la
+          # carga de humo usa las imágenes que construye este job
+          ejecutar_e2e=$(alguno "$todo" "$e2e" "$backend" "$frontend" "$entorno_e2e" "$load_tests")
+          ejecutar_carga=$(alguno "$todo" "$load_tests" "$backend" "$frontend" "$entorno_e2e")
 
           {
             echo "backend=$ejecutar_backend"
-            echo "frontend=$( [ "$todo" = true ] && echo true || echo "$frontend")"
-            echo "e2e=$( [ "$todo" = true ] && echo true || echo "$e2e")"
-            echo "load_tests=$( [ "$todo" = true ] && echo true || echo "$load_tests")"
+            echo "frontend=$ejecutar_frontend"
+            echo "e2e=$ejecutar_e2e"
+            echo "carga=$ejecutar_carga"
             echo "docs_api=$docs_api"
             echo "todo=$todo"
           } >> "$GITHUB_OUTPUT"
@@ -137,7 +155,15 @@ jobs:
             echo "| e2e/ | $e2e |"
             echo "| load-tests/ | $load_tests |"
             echo "| docs/api/ | $docs_api |"
+            echo "| docker-compose.e2e.yml, .env.example | $entorno_e2e |"
             echo "| .github/ (pipeline) | $pipeline |"
+            echo ""
+            echo "| Job | Se ejecuta |"
+            echo "| --- | --- |"
+            echo "| backend | $ejecutar_backend |"
+            echo "| frontend | $ejecutar_frontend |"
+            echo "| e2e | $ejecutar_e2e |"
+            echo "| carga-humo | $ejecutar_carga |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ---------------------------------------------------------------------------------------------
@@ -227,11 +253,492 @@ jobs:
           exit 1
 
   # ---------------------------------------------------------------------------------------------
-  # 3. Reportar fallas: crea o comenta el issue ci-fallo de la rama
+  # 3. Frontend: lint, pruebas con cobertura (Vitest + JUnit) y build
+  # ---------------------------------------------------------------------------------------------
+  frontend:
+    name: Frontend (lint, pruebas y build)
+    needs: cambios
+    if: needs.cambios.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v7
+
+      - name: Instalar Node LTS con caché de npm
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        id: instalar
+        run: npm ci
+
+      # Lint, pruebas y build corren aunque uno falle, para que el reporte tenga toda la información;
+      # cualquiera que falle marca el job como fallido.
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Pruebas con cobertura (Vitest)
+        if: ${{ !cancelled() && steps.instalar.outcome == 'success' }}
+        run: npm test -- --coverage
+
+      - name: Resumir pruebas y cobertura
+        if: ${{ !cancelled() && steps.instalar.outcome == 'success' }}
+        working-directory: .
+        run: >-
+          node .github/scripts/resumen_junit.mjs
+          --nombre Frontend
+          --junit frontend/reportes/junit
+          --cobertura frontend/coverage/coverage-summary.json
+          --salida-json resumen-frontend.json
+
+      - name: Compilar (vite build)
+        if: ${{ !cancelled() && steps.instalar.outcome == 'success' }}
+        run: npm run build
+
+      - name: Publicar resumen para el job reportar-fallas
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: resumen-frontend
+          path: resumen-frontend.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Publicar reporte JUnit de pruebas
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: reportes-pruebas-frontend
+          path: frontend/reportes/junit/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Publicar reporte de cobertura
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: cobertura-frontend
+          path: frontend/coverage/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------------------------
+  # 4. E2E: entorno docker-compose.e2e.yml con Playwright y Selenium
+  # ---------------------------------------------------------------------------------------------
+  e2e:
+    name: E2E (Playwright y Selenium)
+    needs: [cambios, backend, frontend]
+    # Corre aunque fallen pruebas del backend o del frontend (si el código no compila, falla la
+    # construcción de las imágenes); solo se omite si esos jobs se cancelaron.
+    if: >-
+      ${{ !cancelled()
+      && needs.cambios.outputs.e2e == 'true'
+      && needs.backend.result != 'cancelled'
+      && needs.frontend.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      imagenes: ${{ steps.guardar.outputs.imagenes }}
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v7
+
+      - name: Instalar Node LTS con caché de npm
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: |
+            e2e/playwright/package-lock.json
+            e2e/selenium/package-lock.json
+
+      - name: Crear .env con valores aleatorios
+        run: bash .github/scripts/preparar_env_e2e.sh
+
+      - name: Instalar dependencias de Playwright y Selenium
+        run: |
+          npm ci --prefix e2e/playwright
+          npm ci --prefix e2e/selenium
+
+      - name: Caché de los navegadores de Playwright
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/playwright/package-lock.json') }}
+
+      - name: Instalar Chromium de Playwright y sus dependencias
+        working-directory: e2e/playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Construir las imágenes del entorno
+        run: docker compose -f "$COMPOSE_E2E" build
+
+      # La carga de humo reutiliza estas imágenes en lugar de construirlas otra vez
+      - name: Guardar las imágenes para la carga de humo
+        id: guardar
+        run: |
+          set -euo pipefail
+          mapfile -t imagenes < <(docker compose -f "$COMPOSE_E2E" config --images | grep -v '^postgres')
+          echo "Imágenes: ${imagenes[*]}"
+          docker save "${imagenes[@]}" | gzip -1 > imagenes-e2e.tar.gz
+          echo "imagenes=true" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar las imágenes para la carga de humo
+        uses: actions/upload-artifact@v7
+        with:
+          name: imagenes-e2e
+          path: imagenes-e2e.tar.gz
+          compression-level: 0
+          retention-days: 1
+
+      - name: Levantar el entorno e2e
+        id: entorno
+        run: docker compose -f "$COMPOSE_E2E" up -d --no-build --wait
+
+      - name: Pruebas con Playwright
+        if: ${{ !cancelled() && steps.entorno.outcome == 'success' }}
+        working-directory: e2e/playwright
+        run: npm test
+
+      - name: Pruebas con Selenium WebDriver
+        if: ${{ !cancelled() && steps.entorno.outcome == 'success' }}
+        working-directory: e2e/selenium
+        run: npm test
+
+      - name: Resumir pruebas de Playwright
+        if: ${{ !cancelled() }}
+        run: >-
+          node .github/scripts/resumen_junit.mjs
+          --nombre Playwright
+          --junit e2e/playwright/reportes/junit
+          --salida-json resumen-playwright.json
+
+      - name: Resumir pruebas de Selenium
+        if: ${{ !cancelled() }}
+        run: >-
+          node .github/scripts/resumen_junit.mjs
+          --nombre Selenium
+          --junit e2e/selenium/reportes/junit
+          --salida-json resumen-selenium.json
+
+      - name: Guardar los logs del entorno y apagarlo
+        if: ${{ always() }}
+        run: |
+          docker compose -f "$COMPOSE_E2E" ps -a > logs-entorno-e2e.txt 2>&1 || true
+          docker compose -f "$COMPOSE_E2E" logs --no-color --timestamps >> logs-entorno-e2e.txt 2>&1 || true
+          docker compose -f "$COMPOSE_E2E" down --volumes || true
+
+      - name: Publicar reportes de Playwright (HTML, JUnit, capturas y trazas)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: reportes-playwright
+          path: e2e/playwright/reportes/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Publicar reportes de Selenium (JUnit y capturas)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: reportes-selenium
+          path: e2e/selenium/reportes/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Publicar resúmenes para el job reportar-fallas
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: resumen-e2e
+          path: |
+            resumen-playwright.json
+            resumen-selenium.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Publicar logs del entorno
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: logs-entorno-e2e
+          path: logs-entorno-e2e.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------------------------
+  # 5. Carga de humo: k6 (1 usuario, 30 s) contra el mismo entorno e2e
+  # ---------------------------------------------------------------------------------------------
+  carga-humo:
+    name: Carga de humo (k6)
+    needs: [cambios, e2e]
+    # Corre si el job e2e construyó las imágenes, aunque alguna prueba e2e haya fallado
+    if: ${{ !cancelled() && needs.cambios.outputs.carga == 'true' && needs.e2e.outputs.imagenes == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v7
+
+      - name: Crear .env con valores aleatorios
+        run: bash .github/scripts/preparar_env_e2e.sh
+
+      - name: Descargar las imágenes del job e2e
+        uses: actions/download-artifact@v8
+        with:
+          name: imagenes-e2e
+
+      - name: Cargar las imágenes
+        run: gunzip -c imagenes-e2e.tar.gz | docker load
+
+      - name: Levantar el entorno e2e (base limpia)
+        run: docker compose -f "$COMPOSE_E2E" up -d --no-build --wait
+
+      # k6 corre en su contenedor oficial; lee las variables del .env de la raíz (open('../.env'))
+      # y escribe load-tests/results/k6-resumen-humo.json. Si un umbral no se cumple sale con 99.
+      # El modo va como opción de k6 (-e después de "run"), no como variable del contenedor.
+      - name: Ejecutar k6 en modo humo
+        run: >-
+          docker run --rm --network host
+          --user "$(id -u):$(id -g)"
+          -v "${{ github.workspace }}:/repo" -w /repo
+          "$K6_IMAGEN" run -e K6_MODO=humo load-tests/productos.js
+
+      - name: Resumir la carga de humo
+        if: ${{ !cancelled() }}
+        run: |
+          archivo=load-tests/results/k6-resumen-humo.json
+          if [ ! -f "$archivo" ]; then
+            echo "## ❌ Carga de humo (k6): sin resumen; k6 no terminó. Revisa el log." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          jq -r '
+            "## \(if .aprobado then "✅" else "❌" end) Carga de humo (k6)", "",
+            "| Indicador | Valor |", "| --- | --- |",
+            "| Usuarios virtuales | \(.resultado.vusMax) |",
+            "| Productos en la base | \(.volumen.productos // "—") |",
+            "| Solicitudes | \(.resultado.solicitudes) |",
+            "| p95 | \(.resultado.p95Ms * 10 | round / 10) ms |",
+            "| Fallas HTTP | \(.resultado.tasaFallas * 10000 | round / 100) % |",
+            (.umbrales | to_entries[] | "| Umbral `\(.key)` | \(if .value then "cumple" else "no cumple" end) |")
+          ' "$archivo" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar los logs del entorno y apagarlo
+        if: ${{ always() }}
+        run: |
+          docker compose -f "$COMPOSE_E2E" logs --no-color --timestamps > logs-entorno-carga.txt 2>&1 || true
+          docker compose -f "$COMPOSE_E2E" down --volumes || true
+
+      - name: Publicar el resumen de k6
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: resumen-k6
+          path: load-tests/results/k6-resumen-humo.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Publicar logs del entorno
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: logs-entorno-carga
+          path: logs-entorno-carga.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------------------------
+  # 6. Criterios: porcentaje de cumplimiento de los criterios de aceptación
+  # ---------------------------------------------------------------------------------------------
+  criterios:
+    name: Criterios de aceptación
+    needs: [cambios, backend, frontend, e2e, carga-humo]
+    # Corre siempre al final, aunque algún job haya fallado (no si la ejecución se canceló)
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read # para descargar el criterios.json de la última ejecución de main
+      pull-requests: write # para comentar el resumen en el pull request
+    outputs:
+      porcentaje: ${{ steps.evaluar.outputs.porcentaje }}
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v7
+
+      - name: Instalar Node LTS con caché de npm
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+
+      - name: Instalar dependencias de scripts/
+        run: npm ci --prefix scripts
+
+      # Cada reporte va a la ruta que espera scripts/criterios.mjs; si un job se omitió, su artefacto
+      # no existe y el paso se ignora (sus criterios quedan SIN PRUEBA).
+      - name: Descargar reportes del backend
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: reportes-pruebas-backend
+          path: backend/target/surefire-reports
+
+      - name: Descargar cobertura JaCoCo
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: cobertura-jacoco-backend
+          path: backend/target/site/jacoco
+
+      - name: Descargar reportes del frontend
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: reportes-pruebas-frontend
+          path: frontend/reportes/junit
+
+      - name: Descargar reportes de Playwright
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: reportes-playwright
+          path: e2e/playwright/reportes
+
+      - name: Descargar reportes de Selenium
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: reportes-selenium
+          path: e2e/selenium/reportes
+
+      - name: Descargar resumen de k6
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: resumen-k6
+          path: load-tests/results
+
+      - name: Buscar la última ejecución de main con reporte de criterios
+        id: base
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+              owner, repo, branch: 'main', event: 'push', status: 'completed', per_page: 30,
+            });
+            const corridas = data.workflow_runs.filter(
+              (r) => r.id !== context.runId && r.path === '.github/workflows/ci.yml');
+            for (const corrida of corridas) {
+              const { data: artefactos } = await github.rest.actions.listWorkflowRunArtifacts({
+                owner, repo, run_id: corrida.id, name: 'criterios',
+              });
+              if (artefactos.artifacts.some((a) => !a.expired)) {
+                core.setOutput('run_id', String(corrida.id));
+                core.notice(`Base de comparación: ejecución #${corrida.run_number} de main (${corrida.head_sha.substring(0, 7)}).`);
+                return;
+              }
+            }
+            core.notice('No hay una ejecución de main con reporte de criterios: no se compara.');
+
+      - name: Descargar el reporte de criterios de main
+        if: ${{ steps.base.outputs.run_id != '' }}
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: criterios
+          path: base
+          run-id: ${{ steps.base.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Evaluar criterios
+        id: evaluar
+        run: |
+          set +e
+          if [ -f base/criterios.json ]; then
+            node scripts/criterios.mjs --base base/criterios.json
+          else
+            node scripts/criterios.mjs
+          fi
+          codigo=$?
+          set -e
+          # 1 = hay criterios en FALLA: los jobs de origen ya fallaron; cualquier otro código es un error del script
+          if [ "$codigo" -gt 1 ]; then exit "$codigo"; fi
+          jq -r '"porcentaje=\(.total.porcentaje)", "fallan=\(.total.falla)",
+                 "sin_base=\(.comparacion == null)",
+                 "dejaron=\(.comparacion.dejaronDeCumplir // [] | length)"' \
+            reportes/criterios/criterios.json >> "$GITHUB_OUTPUT"
+
+      - name: Publicar el Job Summary
+        env:
+          RESULTADOS: ${{ toJSON(needs) }}
+        run: |
+          omitidos=$(jq -r 'to_entries | map(select(.value.result == "skipped") | .key) | join(", ")' <<< "$RESULTADOS")
+          {
+            if [ -n "$omitidos" ]; then
+              echo "> Jobs omitidos en esta ejecución: **${omitidos}**. Sus criterios aparecen como SIN PRUEBA."
+              echo ""
+            fi
+            cat reportes/criterios/criterios.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar el reporte de criterios
+        uses: actions/upload-artifact@v7
+        with:
+          name: criterios
+          path: reportes/criterios/
+          retention-days: 30
+
+      - name: Comentar el resumen en el pull request
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const marca = '<!-- ci-criterios -->';
+            const urlEjecucion = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            let resumen = fs.readFileSync('reportes/criterios/criterios-resumen.md', 'utf8');
+            // Límite de GitHub: 65.536 caracteres por comentario
+            if (resumen.length > 60000) {
+              resumen = resumen.slice(0, 60000) + '\n\n…(recortado; el reporte completo está en el Job Summary)';
+            }
+            const cuerpo = `${marca}\n${resumen}\n\n---\n` +
+              `Commit \`${process.env.COMMIT.substring(0, 7)}\` · [${context.workflow} #${context.runNumber}](${urlEjecucion}) · ` +
+              'reporte completo en el Job Summary y en el artefacto `criterios`.';
+            try {
+              const comentarios = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number: context.issue.number, per_page: 100,
+              });
+              const existente = comentarios.find((c) => (c.body ?? '').startsWith(marca));
+              if (existente) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existente.id, body: cuerpo });
+                core.notice(`Se actualizó el comentario de criterios del PR #${context.issue.number}.`);
+              } else {
+                await github.rest.issues.createComment({ owner, repo, issue_number: context.issue.number, body: cuerpo });
+                core.notice(`Se comentó el PR #${context.issue.number}.`);
+              }
+            } catch (error) {
+              // En un PR desde un fork el token es de solo lectura
+              core.warning(`No se pudo comentar el PR: ${error.message}`);
+            }
+
+  # ---------------------------------------------------------------------------------------------
+  # 7. Reportar fallas: crea o comenta el issue ci-fallo de la rama y avisa por webhook
   # ---------------------------------------------------------------------------------------------
   reportar-fallas:
     name: Reportar fallas
-    needs: [cambios, backend]
+    needs: [cambios, backend, frontend, e2e, carga-humo, criterios]
     # Solo si algún job falló, y solo en push: el issue sigue el estado de la rama. Un pull request
     # ya muestra su resultado en sus checks (y desde un fork el token no puede escribir issues).
     if: failure() && github.event_name == 'push'
@@ -244,14 +751,27 @@ jobs:
     concurrency:
       group: ci-issue-${{ github.head_ref || github.ref_name }}
       cancel-in-progress: false
+    env:
+      # Opcional: URL de un webhook de Discord o Slack. Si el secreto no existe queda vacía y el aviso se omite.
+      NOTIFICACION_WEBHOOK: ${{ secrets.NOTIFICACION_WEBHOOK }}
     steps:
-      - name: Descargar el resumen del backend
+      - name: Descargar los resúmenes de pruebas
         uses: actions/download-artifact@v8
         continue-on-error: true
         with:
-          name: resumen-backend
+          pattern: resumen-*
+          path: resumenes
+          merge-multiple: true
+
+      - name: Descargar el reporte de criterios
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: criterios
+          path: criterios
 
       - name: Crear o comentar el issue ci-fallo
+        id: issue
         uses: actions/github-script@v9
         env:
           RESULTADOS: ${{ toJSON(needs) }}
@@ -266,6 +786,8 @@ jobs:
             const evento = context.eventName === 'pull_request'
               ? `pull request #${context.payload.pull_request.number}`
               : 'push';
+            const celda = (t) => String(t ?? '').replace(/\|/g, '\\|').replace(/\s*\n\s*/g, ' ');
+            const leerJson = (ruta) => (fs.existsSync(ruta) ? JSON.parse(fs.readFileSync(ruta, 'utf8')) : null);
 
             // Autor del commit probado
             let autor = 'desconocido';
@@ -284,25 +806,100 @@ jobs:
               .map(([job, r]) => `| ${job} | ${iconos[r.result] ?? ''} ${r.result} |`)
               .join('\n');
 
-            // Pruebas fallidas del backend
-            let seccionPruebas;
-            if (fs.existsSync('resumen-backend.json')) {
-              const resumen = JSON.parse(fs.readFileSync('resumen-backend.json', 'utf8'));
-              const celda = (t) => String(t).replace(/\|/g, '\\|').replace(/\n/g, ' ');
-              if (resumen.reportes === 0) {
-                seccionPruebas = 'No hay reportes de pruebas: la compilación falló antes de ejecutarlas. Revisa el log del job backend.';
-              } else if (resumen.fallas.length === 0) {
-                seccionPruebas = `Las ${resumen.total} pruebas pasaron; la falla está en otro paso (Javadoc, cobertura mínima o compilación). ` +
-                  `Cobertura de líneas: ${resumen.cobertura_lineas === null ? 'sin reporte' : (resumen.cobertura_lineas * 100).toFixed(1) + ' %'}.`;
-              } else {
-                const filas = resumen.fallas.slice(0, 50).map((f) =>
-                  `| ${celda(f.clase.split('.').pop())} | ${celda(f.prueba)} | ${celda(f.mensaje)} |`);
-                seccionPruebas = `${resumen.fallidas} de ${resumen.total} pruebas fallaron:\n\n` +
-                  '| Clase | Prueba | Mensaje |\n| --- | --- | --- |\n' + filas.join('\n') +
-                  (resumen.fallas.length > 50 ? `\n\n…y ${resumen.fallas.length - 50} más en el artefacto reportes-pruebas-backend.` : '');
-              }
+            // Cumplimiento de criterios
+            const criterios = leerJson('criterios/criterios.json');
+            const MAXIMO = 50;
+            const tablaCriterios = (lista, columnaDetalle) => [
+              `| Criterio | Requisito | Estado | ${columnaDetalle} |`,
+              '| --- | --- | --- | --- |',
+              ...lista.slice(0, MAXIMO).map((c) => `| ${c.id} | ${c.requisito} | ${c.estado ?? c.ahora} | ${celda(c.detalle)} |`),
+              ...(lista.length > MAXIMO ? ['', `…y ${lista.length - MAXIMO} más en el artefacto criterios.`] : []),
+            ].join('\n');
+            let seccionCriterios;
+            let porcentaje = '';
+            let fallan = '';
+            if (!criterios) {
+              seccionCriterios = 'El job criterios no produjo reporte. Revisa el log de la ejecución.';
             } else {
-              seccionPruebas = 'El job backend no produjo resumen de pruebas (no se ejecutó o falló antes). Revisa el log de la ejecución.';
+              const t = criterios.total;
+              porcentaje = String(t.porcentaje);
+              fallan = String(t.falla);
+              const enFalla = criterios.criterios.filter((c) => c.estado === 'FALLA').map((c) => ({
+                ...c,
+                detalle: c.fallas.slice(0, 3).map((f) => `${f.fuente}: ${f.nombre}`).join(' · ') +
+                  (c.fallas.length > 3 ? ` · …(${c.fallas.length - 3} más)` : ''),
+              }));
+              const partes = [
+                `**${t.porcentaje} %** — ${t.cumple} de ${t.total} criterios cumplen, ${t.falla} fallan y ` +
+                  `${t.sinPrueba} no tienen prueba.`,
+                '',
+                '### Dejaron de cumplirse respecto a main',
+                '',
+              ];
+              const comparacion = criterios.comparacion;
+              if (!comparacion) {
+                partes.push('No hay una ejecución base de `main` con reporte de criterios, así que no se puede comparar.');
+              } else {
+                const signo = comparacion.variacion > 0 ? '+' : '';
+                partes.push(`Base: ${comparacion.base.porcentaje} % en main` +
+                  (comparacion.variacion === null ? '.' : ` (variación: ${signo}${comparacion.variacion} puntos).`), '');
+                partes.push(comparacion.dejaronDeCumplir.length === 0
+                  ? 'Ninguno.'
+                  : tablaCriterios(comparacion.dejaronDeCumplir.map((c) => ({
+                      ...c, estado: `${c.antes} → ${c.ahora}`, detalle: c.descripcion,
+                    })), 'Descripción'));
+              }
+              partes.push('', '### Todos los criterios en FALLA en esta ejecución', '',
+                enFalla.length === 0 ? 'Ninguno.' : tablaCriterios(enFalla, 'Pruebas que fallaron'));
+              seccionCriterios = partes.join('\n');
+            }
+
+            // Pruebas fallidas por fuente
+            const fuentes = [
+              ['Backend', 'backend', 'resumenes/resumen-backend.json', 'reportes-pruebas-backend'],
+              ['Frontend', 'frontend', 'resumenes/resumen-frontend.json', 'reportes-pruebas-frontend'],
+              ['Playwright', 'e2e', 'resumenes/resumen-playwright.json', 'reportes-playwright'],
+              ['Selenium', 'e2e', 'resumenes/resumen-selenium.json', 'reportes-selenium'],
+            ];
+            const seccionesPruebas = fuentes.map(([nombre, job, ruta, artefacto]) => {
+              const resultadoJob = resultados[job]?.result;
+              const resumen = leerJson(ruta);
+              let texto;
+              if (resultadoJob === 'skipped') {
+                texto = 'Job omitido (sin cambios que lo afecten).';
+              } else if (!resumen) {
+                texto = 'Sin resumen de pruebas: el job no llegó a ejecutarlas. Revisa su log.';
+              } else if (resumen.reportes === 0) {
+                texto = 'No hay reportes de pruebas: falló un paso anterior (compilación, instalación o entorno).';
+              } else if (resumen.fallas.length === 0) {
+                const cobertura = resumen.cobertura_lineas === null || resumen.cobertura_lineas === undefined
+                  ? '' : ` Cobertura de líneas: ${(resumen.cobertura_lineas * 100).toFixed(1)} %.`;
+                texto = `Las ${resumen.total} pruebas pasaron` +
+                  (resultadoJob === 'failure' ? '; la falla está en otro paso (lint, build, Javadoc o cobertura mínima).' : '.') +
+                  cobertura;
+              } else {
+                const filas = resumen.fallas.slice(0, MAXIMO).map((f) =>
+                  `| ${celda(String(f.clase).split(/[./\\]/).pop())} | ${celda(f.prueba)} | ${celda(f.mensaje)} |`);
+                texto = `${resumen.fallidas} de ${resumen.total} pruebas fallaron:\n\n` +
+                  '| Clase o archivo | Prueba | Mensaje |\n| --- | --- | --- |\n' + filas.join('\n') +
+                  (resumen.fallas.length > MAXIMO ? `\n\n…y ${resumen.fallas.length - MAXIMO} más en el artefacto ${artefacto}.` : '');
+              }
+              return `#### ${nombre}\n\n${texto}`;
+            });
+
+            // Carga de humo
+            const k6 = leerJson('resumenes/k6-resumen-humo.json');
+            let seccionK6;
+            if (resultados['carga-humo']?.result === 'skipped') {
+              seccionK6 = 'Job omitido (sin cambios que lo afecten, o el job e2e no construyó las imágenes).';
+            } else if (!k6) {
+              seccionK6 = 'Sin resumen de k6: la prueba no terminó. Revisa el log del job carga-humo.';
+            } else {
+              const umbrales = Object.entries(k6.umbrales ?? {})
+                .map(([u, ok]) => `\`${u}\` ${ok ? 'cumple' : 'no cumple'}`).join(' · ');
+              seccionK6 = `${k6.aprobado ? '✅' : '❌'} p95 ${k6.resultado.p95Ms?.toFixed(1)} ms · ` +
+                `fallas HTTP ${((k6.resultado.tasaFallas ?? 0) * 100).toFixed(2)} % · ${k6.resultado.solicitudes} solicitudes. ` +
+                `Umbrales: ${umbrales}.`;
             }
 
             const detalle = [
@@ -313,6 +910,7 @@ jobs:
               `| Autor del commit | ${autor} |`,
               `| Disparado por | @${context.actor} (${evento}) |`,
               `| Ejecución | [${context.workflow} #${context.runNumber}](${urlEjecucion}) |`,
+              `| Cumplimiento de criterios | ${porcentaje ? `${porcentaje} %` : 'sin reporte'} |`,
               '',
               '### Jobs',
               '',
@@ -320,9 +918,17 @@ jobs:
               '| --- | --- |',
               filasJobs,
               '',
+              '### Cumplimiento de criterios de aceptación',
+              '',
+              seccionCriterios,
+              '',
               '### Pruebas fallidas',
               '',
-              seccionPruebas,
+              seccionesPruebas.join('\n\n'),
+              '',
+              '#### Carga de humo (k6)',
+              '',
+              seccionK6,
             ].join('\n');
 
             // Etiqueta ci-fallo (se crea la primera vez)
@@ -343,8 +949,10 @@ jobs:
             const existente = abiertos.find((i) => !i.pull_request && (i.body ?? '').includes(marca));
 
             let numero;
+            let url;
             if (existente) {
               numero = existente.number;
+              url = existente.html_url;
               await github.rest.issues.createComment({
                 owner, repo, issue_number: numero,
                 body: `## ❌ La rama sigue fallando\n\n${detalle}`,
@@ -359,6 +967,7 @@ jobs:
                   '_Este issue se comenta en cada nueva falla de la rama y se cierra solo cuando la rama vuelva a pasar._',
               });
               numero = data.number;
+              url = data.html_url;
               core.notice(`Se creó el issue #${numero}.`);
             }
 
@@ -369,12 +978,44 @@ jobs:
               core.warning(`No se pudo asignar a @${context.actor}: ${error.message}`);
             }
 
+            const dejaron = criterios?.comparacion ? String(criterios.comparacion.dejaronDeCumplir.length) : '';
+            core.setOutput('issue_url', url);
+            core.setOutput('porcentaje', porcentaje);
+            core.setOutput('fallan', fallan);
+            core.setOutput('dejaron', dejaron);
+
+      - name: Avisar por webhook (Discord o Slack)
+        if: ${{ !cancelled() && env.NOTIFICACION_WEBHOOK != '' }}
+        continue-on-error: true
+        env:
+          ISSUE_URL: ${{ steps.issue.outputs.issue_url }}
+          PORCENTAJE: ${{ steps.issue.outputs.porcentaje }}
+          FALLAN: ${{ steps.issue.outputs.fallan }}
+          DEJARON: ${{ steps.issue.outputs.dejaron }}
+          URL_EJECUCION: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # Discord espera el campo "content"; Slack (y la mayoría de webhooks) espera "text"
+          case "$NOTIFICACION_WEBHOOK" in
+            *discord.com/api/webhooks*|*discordapp.com/api/webhooks*) campo=content ;;
+            *) campo=text ;;
+          esac
+          mensaje="❌ CI falló en la rama ${RAMA} (commit ${COMMIT:0:7})."
+          mensaje+=" Cumplimiento de criterios: ${PORCENTAJE:-sin reporte}${PORCENTAJE:+ %}"
+          [ -n "$FALLAN" ] && mensaje+=", ${FALLAN} en FALLA"
+          [ -n "$DEJARON" ] && mensaje+=", ${DEJARON} dejaron de cumplirse respecto a main"
+          mensaje+=". Issue: ${ISSUE_URL:-no se pudo crear} · Ejecución: ${URL_EJECUCION}"
+          jq -n --arg campo "$campo" --arg mensaje "$mensaje" '{($campo): $mensaje}' \
+            | curl --fail --silent --show-error --max-time 15 -X POST \
+                -H 'Content-Type: application/json' --data @- "$NOTIFICACION_WEBHOOK"
+          echo "Aviso enviado al webhook."
+
   # ---------------------------------------------------------------------------------------------
-  # 4. Cerrar fallas: si la rama vuelve a pasar, comenta y cierra su issue ci-fallo
+  # 8. Cerrar fallas: si la rama vuelve a pasar, comenta y cierra su issue ci-fallo
   # ---------------------------------------------------------------------------------------------
   cerrar-fallas:
     name: Cerrar issue de fallas
-    needs: [cambios, backend]
+    needs: [cambios, backend, frontend, e2e, carga-humo, criterios]
     # Ningún job falló ni se canceló. Si la rama tenía un issue abierto, "cambios" forzó todos los jobs,
     # así que un job omitido aquí no oculta una falla anterior.
     if: ${{ !failure() && !cancelled() && github.event_name == 'push' }}
@@ -389,6 +1030,8 @@ jobs:
     steps:
       - name: Comentar y cerrar el issue ci-fallo de la rama
         uses: actions/github-script@v9
+        env:
+          PORCENTAJE: ${{ needs.criterios.outputs.porcentaje }}
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -404,12 +1047,13 @@ jobs:
               return;
             }
             const urlEjecucion = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const cumplimiento = process.env.PORCENTAJE ? ` Cumplimiento de criterios: ${process.env.PORCENTAJE} %.` : '';
             for (const issue of issues) {
               await github.rest.issues.createComment({
                 owner, repo, issue_number: issue.number,
                 body: `## ✅ La rama \`${rama}\` vuelve a pasar\n\n` +
                   `Commit [\`${sha.substring(0, 7)}\`](${context.serverUrl}/${owner}/${repo}/commit/${sha}) · ` +
-                  `[${context.workflow} #${context.runNumber}](${urlEjecucion}). Se cierra el issue.`,
+                  `[${context.workflow} #${context.runNumber}](${urlEjecucion}).${cumplimiento} Se cierra el issue.`,
               });
               await github.rest.issues.update({
                 owner, repo, issue_number: issue.number, state: 'closed', state_reason: 'completed',
