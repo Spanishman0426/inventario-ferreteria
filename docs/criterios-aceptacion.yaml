@@ -1,7 +1,8 @@
 # Nombre: criterios-aceptacion.yaml
 # Descripción: Catálogo de criterios de aceptación de los requisitos implementados (RF-PRO-001,
-#              RF-PRO-003, RF-CFG-001, RF-SEG-001, RF-SEG-002) y de los RNF de seguridad, interacción y
-#              mantenibilidad que aplican, con los niveles de prueba y los escenarios E2E que los cubren.
+#              RF-PRO-003, RF-CFG-001, RF-SEG-001, RF-SEG-002) y de los RNF de seguridad, eficiencia,
+#              interacción y mantenibilidad que aplican, con sus casos de prueba por nivel y los escenarios
+#              E2E que los cubren. Fuente de docs/pruebas/casos-de-prueba.md y de scripts/criterios.mjs.
 # Fecha de creación: 2026-10-20
 # Última actualización: 2026-10-21
 # Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
@@ -21,11 +22,17 @@
 #   de la especificación, pero se desprenden de su flujo principal, de la matriz 2.2 o de las reglas
 #   del proyecto (internacionalización). Se agregan para que todo escenario E2E tenga un criterio
 #   verificable; el campo origen indica de dónde sale cada uno.
+# - casos: casos de prueba del criterio, uno por nivel (a veces más). Cada caso tiene nivel, pasos,
+#   datos y esperado. El id del caso lo asigna scripts/casos-de-prueba.mjs (CP-<criterio>-<nn>, en el
+#   orden de esta lista) y el archivo que lo implementa se busca en el código por el id del criterio
+#   y el nivel. Un caso de un criterio pendiente describe la prueba prevista.
+# - medicion (opcional): cómo se evalúa el criterio cuando no es una prueba con nombre: "k6" (umbral del
+#   resumen de load-tests/productos.js) o "jacoco" (cobertura de líneas de backend/target/site/jacoco).
 # - Cada prueba que verifica un criterio lleva su id al inicio del nombre visible, por ejemplo
 #   "[CA-RF-PRO-001-2] rechaza producto sin marca".
 #
-# No se incluyen: RNF-INT-001 (venta con lector y teclado: ventas aún no implementadas) ni los RNF de
-# eficiencia, fiabilidad y compatibilidad (fuera del alcance de este paso).
+# No se incluyen: RNF-INT-001 (venta con lector y teclado: ventas aún no implementadas), RNF-REN-002
+# (reportes y kardex: sin módulos todavía), RNF-FIA y RNF-COM-001 (fuera del alcance de este paso).
 
 criterios:
 
@@ -35,18 +42,77 @@ criterios:
     descripcion: Un producto válido queda registrado y puede consultarse.
     niveles: [unitaria, integracion, e2e]
     e2e: [E2E-02]
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Crear una petición completa con marca, categoría, unidad, tarifa y control (backend) o llenar el formulario (frontend).
+          - Llamar a ProductoService.crear con los repositorios simulados, o enviar el formulario con el servicio simulado.
+        datos: Nombre "  Martillo de uña 16 oz  ", marca 1, categoría 1, UND, IVA 19 %, margen 30, garantía 12 meses.
+        esperado: Se guarda con nombre recortado, descripción en blanco como nula y estado ACTIVO; el formulario llama al servicio una vez.
+      - nivel: integracion
+        pasos:
+          - Iniciar sesión como jefe de inventario.
+          - POST /api/v1/productos con un producto válido.
+          - GET /api/v1/productos/{id} y buscar por nombre.
+        datos: Producto con nombre único (UUID), marca 1, categoría 1, UND, tarifa 3, margen 30, control NINGUNO.
+        esperado: 201 con Location; el GET devuelve los mismos datos y la búsqueda lo encuentra; se audita un CREAR.
+      - nivel: e2e
+        pasos:
+          - Entrar como jefe de inventario y abrir Productos.
+          - Crear un producto con garantía y plazo desde el formulario.
+          - Buscarlo por nombre.
+        datos: Nombre "E2E PW/SE <sello>", garantía 12 meses.
+        esperado: Notificación de éxito; la tabla lo muestra con marca, categoría, unidad, IVA y estado Activo.
 
   - id: CA-RF-PRO-001-2
     requisito: RF-PRO-001
     descripcion: Se rechaza un producto sin marca, sin unidad base, sin tarifa de IVA o con garantía sin plazo.
     niveles: [unitaria, integracion, e2e]
     e2e: [E2E-03]
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Validar la petición con Bean Validation / GarantiaConPlazoValidator (backend) o con productoSchema de Yup (frontend).
+          - Llamar al servicio con referencias inexistentes o inactivas.
+        datos: Petición sin marcaId, sin unidadBase y sin tarifaIvaId; control GARANTIA sin plazo; marca inactiva.
+        esperado: Un error por campo (marcaId, unidadBase, tarifaIvaId, plazoGarantiaMeses) y nada se guarda.
+      - nivel: integracion
+        pasos:
+          - POST /api/v1/productos con los campos obligatorios vacíos o con garantía sin plazo.
+          - Insertar por SQL un producto sin marca, sin unidad o sin tarifa, y otro con garantía sin plazo.
+        datos: Token de jefe; JSON sin marcaId, unidadBase ni tarifaIvaId; control GARANTIA sin plazoGarantiaMeses.
+        esperado: 400 con un error en cada campo; por SQL 23502 (NOT NULL) y 23514 (ck_producto_garantia).
+      - nivel: e2e
+        pasos:
+          - Abrir el formulario de nuevo producto y guardar vacío.
+          - Escribir valores fuera de rango y elegir garantía sin plazo.
+        datos: Nombre de 2 caracteres, porcentaje 501, garantía sin plazo.
+        esperado: Cada campo muestra su etiqueta y la causa; no se envía nada al servidor.
 
   - id: CA-RF-PRO-001-3
     requisito: RF-PRO-001
     descripcion: Se rechaza un duplicado de nombre y marca, indicando la causa.
     niveles: [unitaria, integracion, e2e]
     e2e: [E2E-07]
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Simular que el repositorio ya tiene el nombre para la marca.
+          - Llamar a ProductoService.crear o actualizar.
+        datos: Nombre existente con otras mayúsculas, misma marca.
+        esperado: ConflictoException con nombre y marca; no se llama a save.
+      - nivel: integracion
+        pasos:
+          - Crear un producto por la API y repetir la creación con el mismo nombre en otras mayúsculas.
+          - Insertar el duplicado por SQL y con el repositorio JPA, sin pasar por el servicio.
+        datos: Mismo nombre y marca; Accept-Language es y en.
+        esperado: 409 CONFLICTO_UNICIDAD con la causa traducida; por SQL o JPA, 23505 (ux_producto_marca_nombre).
+      - nivel: e2e
+        pasos:
+          - Crear un producto por API y luego otro igual desde el formulario.
+          - Cambiar solo la marca y guardar de nuevo.
+        datos: Mismo nombre y marca; después otra marca.
+        esperado: El campo nombre muestra la causa del servidor; con otra marca sí se registra.
 
   - id: CA-RF-PRO-001-D1
     requisito: RF-PRO-001
@@ -54,6 +120,14 @@ criterios:
     origen: Matriz 2.2, operación "Crear y editar productos y presentaciones".
     niveles: [e2e]
     e2e: [E2E-04]
+    casos:
+      - nivel: e2e
+        pasos:
+          - Crear un producto por API.
+          - Editar nombre, marca y porcentaje desde la interfaz.
+          - Buscar por el nombre anterior y por el nuevo.
+        datos: Producto "E2E ... <sello>"; nueva marca y margen 45.
+        esperado: El nombre anterior ya no aparece; el nuevo se muestra con la marca y el margen editados.
 
   # ------------------------------------------------------------------ RF-PRO-003 Buscar y consultar productos
   - id: CA-RF-PRO-003-1
@@ -61,18 +135,48 @@ criterios:
     descripcion: Un código registrado devuelve exactamente su presentación.
     niveles: [integracion, e2e, carga]
     observacion: Pendiente; depende de las presentaciones y códigos de barras (RF-PRO-002), aún no implementados.
+    casos:
+      - nivel: integracion
+        pasos:
+          - Consultar por la API el código de barras de una presentación del escenario.
+        datos: Código 7702001000012 (presentación 1 del escenario de prueba).
+        esperado: Una sola presentación, la 1, con su producto. (Prueba prevista.)
 
   - id: CA-RF-PRO-003-2
     requisito: RF-PRO-003
     descripcion: Las existencias mostradas coinciden con la suma de movimientos y cambios de estado.
     niveles: [integracion, e2e]
     observacion: Pendiente; la consulta de existencias por estado y lote aún no está implementada.
+    casos:
+      - nivel: integracion
+        pasos:
+          - Consultar las existencias de cada producto del escenario por la API.
+          - Compararlas con la suma del kardex (v_kardex) por estado.
+        datos: Escenario de database/02_datos_prueba.sql.
+        esperado: 0 discrepancias, como PC-02 del plan de pruebas de la base. (Prueba prevista.)
 
   - id: CA-RF-PRO-003-3
     requisito: RF-PRO-003
     descripcion: Un vendedor no ve costos.
     niveles: [unitaria, integracion, e2e]
     e2e: [E2E-08]
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Convertir un producto a respuesta con y sin el permiso COSTOS_VER (backend).
+          - Renderizar la página de productos con un usuario sin COSTOS_VER (frontend).
+        datos: Producto con margen 30 y último costo 18.000.
+        esperado: Sin el permiso no se incluyen porcentajeIncremento ni ultimoCostoBase, y la tabla no muestra la columna.
+      - nivel: integracion
+        pasos:
+          - Consultar el mismo producto con el token del vendedor y con el del gerente.
+        datos: Usuarios vendedor y gerente del escenario.
+        esperado: El JSON del vendedor omite margen y costo; el del gerente los trae.
+      - nivel: e2e
+        pasos:
+          - Entrar como vendedor y abrir Productos.
+        datos: Usuario vendedor.
+        esperado: No hay columna de costos ni botones de edición.
 
   - id: CA-RF-PRO-003-D1
     requisito: RF-PRO-003
@@ -82,33 +186,101 @@ criterios:
     origen: Descripción y pasos 1 y 2 del flujo principal de RF-PRO-003.
     niveles: [e2e]
     e2e: [E2E-05]
+    casos:
+      - nivel: e2e
+        pasos:
+          - Crear por API tres productos propios, uno inactivo.
+          - Buscar con otras mayúsculas y combinar filtros de categoría y estado.
+          - Buscar un texto sin coincidencias.
+        datos: Tres productos "E2E ... <sello>" en dos categorías.
+        esperado: Solo aparecen los que cumplen todos los filtros; sin coincidencias se muestra el aviso de sin resultados.
 
   # ------------------------------------------------------------------ RF-CFG-001 Configuración y catálogos
   - id: CA-RF-CFG-001-3
     requisito: RF-CFG-001
     descripcion: Un elemento de catálogo en uso no se elimina; solo se desactiva.
-    niveles: [e2e]
+    niveles: [integracion, e2e]
     e2e: [E2E-06]
     observacion: >-
       Por ahora cubre el producto (DELETE /api/v1/productos/{id} lo deja INACTIVO, previa confirmación en la
       interfaz); marcas, categorías y motivos se agregarán con la administración de RF-CFG-001.
+    casos:
+      - nivel: integracion
+        pasos:
+          - DELETE /api/v1/productos/{id} con el token del jefe.
+          - Consultar el producto y repetir el DELETE.
+        datos: Producto creado para la prueba.
+        esperado: 204; el producto sigue existiendo como INACTIVO y consultable; repetirlo no audita de nuevo.
+      - nivel: e2e
+        pasos:
+          - Pulsar Desactivar y cancelar el diálogo.
+          - Pulsar Desactivar y confirmar.
+        datos: Producto creado por API.
+        esperado: Cancelar no cambia nada; confirmar lo deja Inactivo, sin botón de desactivar y aún editable.
 
   # ------------------------------------------------------------------ RF-SEG-001 Usuarios, roles y sesión
   - id: CA-RF-SEG-001-1
     requisito: RF-SEG-001
     descripcion: Tras 5 intentos fallidos la cuenta se bloquea 15 minutos.
     niveles: [unitaria, integracion, e2e]
+    observacion: La página de inicio de sesión muestra el aviso (Vitest, nivel unitario); falta el escenario E2E.
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Simular 5 inicios de sesión con contraseña incorrecta en ServicioAutenticacion.
+          - Intentar con la contraseña correcta antes y después de 15 minutos (reloj fijo).
+          - Mostrar en LoginPage la respuesta CUENTA_BLOQUEADA.
+        datos: Usuario con hash BCrypt simulado; reloj en 2026-10-21 10:00 Bogotá.
+        esperado: Al quinto fallo bloqueado_hasta = ahora + 15 min; con la correcta sigue rechazado hasta que vence el plazo.
+      - nivel: integracion
+        pasos:
+          - POST /api/v1/auth/login 5 veces con contraseña incorrecta.
+          - Repetir con la contraseña correcta.
+        datos: Usuario gerente del escenario.
+        esperado: 423 CUENTA_BLOQUEADA con la hora de desbloqueo en es y en, aun con la contraseña correcta.
 
   - id: CA-RF-SEG-001-2
     requisito: RF-SEG-001
     descripcion: Un usuario sin permiso no ejecuta la operación, ni por interfaz ni por API.
-    niveles: [integracion, e2e]
+    niveles: [unitaria, integracion, e2e]
     e2e: [E2E-08]
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Renderizar ProtectedRoute y ProductosPage con un usuario sin el permiso.
+        datos: Usuario sin CATALOGO_EDITAR o sin la ruta permitida.
+        esperado: No se muestra la acción ni la página; se redirige.
+      - nivel: integracion
+        pasos:
+          - Recorrer cada endpoint de /api con el token de cada uno de los 6 roles (MatrizPermisosIntegracionTests).
+          - Comprobar en la base que una operación denegada no deja rastro.
+        datos: 20 endpoints × 6 roles con cuerpos válidos; productos y usuarios creados para cada caso.
+        esperado: 2xx si la matriz 2.2 da el permiso; si no, 403 ACCESO_DENEGADO sin registro de auditoría.
+      - nivel: e2e
+        pasos:
+          - Entrar como vendedor; revisar la tabla de productos.
+          - Llamar a la API de crear y desactivar con su token.
+        datos: Usuario vendedor.
+        esperado: Sin botones de crear, editar ni desactivar; la API responde 403.
 
   - id: CA-RF-SEG-001-3
     requisito: RF-SEG-001
     descripcion: Los usuarios no se eliminan, solo se desactivan; una cuenta desactivada no inicia sesión.
     niveles: [unitaria, integracion, e2e]
+    observacion: La página de inicio de sesión muestra el aviso (Vitest, nivel unitario); falta el escenario E2E.
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Iniciar sesión en ServicioAutenticacion con un usuario inactivo y la contraseña correcta.
+          - Mostrar en LoginPage la respuesta de cuenta inactiva.
+        datos: Usuario con activo = false.
+        esperado: Se rechaza sin emitir token.
+      - nivel: integracion
+        pasos:
+          - PATCH /api/v1/usuarios/{id}/estado con activo false.
+          - Iniciar sesión con ese usuario; intentar DELETE /api/v1/usuarios/{id}.
+        datos: Usuario creado por el administrador.
+        esperado: El login se rechaza; DELETE no existe (405) y el usuario sigue en la tabla.
 
   - id: CA-RF-SEG-001-D1
     requisito: RF-SEG-001
@@ -118,17 +290,39 @@ criterios:
     origen: Pasos 1 y 2 del flujo principal de RF-SEG-001.
     niveles: [e2e]
     e2e: [E2E-01]
+    casos:
+      - nivel: e2e
+        pasos:
+          - Abrir /login, escribir una contraseña errada y enviar.
+          - Escribir la contraseña correcta y enviar.
+        datos: Usuario jefe con E2E_JEFE_PASSWORD.
+        esperado: Con la errada, aviso y sigue en /login; con la correcta entra a productos y muestra "Julia Jefe Inventario".
 
   # ------------------------------------------------------------------ RF-SEG-002 Auditoría
   - id: CA-RF-SEG-002-1
     requisito: RF-SEG-002
     descripcion: Cada operación auditable genera exactamente un registro en la misma transacción.
     niveles: [integracion]
+    casos:
+      - nivel: integracion
+        pasos:
+          - Anotar el último id de auditoría.
+          - Iniciar sesión (correcto y fallido), crear, editar e inactivar un producto y desactivar un usuario por la API.
+          - Insertar y modificar un producto por SQL en una transacción que se revierte.
+        datos: Usuarios del escenario; productos con nombre único.
+        esperado: Un registro por operación (INICIAR_SESION, SESION_FALLIDA, CREAR, MODIFICAR) con usuario e IP; un UPDATE sin cambios no se audita; al revertir no queda nada.
 
   - id: CA-RF-SEG-002-2
     requisito: RF-SEG-002
     descripcion: Nadie puede modificar ni borrar un registro de menos de 24 meses.
     niveles: [integracion]
+    casos:
+      - nivel: integracion
+        pasos:
+          - PUT y DELETE sobre /api/v1/auditoria/{id} con el token del administrador.
+          - UPDATE y DELETE sobre auditoria por SQL con el usuario de la aplicación.
+        datos: Último registro de auditoría.
+        esperado: 405 por la API y P0001 por SQL; el registro queda igual.
 
   - id: CA-RF-SEG-002-3
     requisito: RF-SEG-002
@@ -137,6 +331,13 @@ criterios:
     observacion: >-
       Se prueba la función fn_depurar_auditoria de la base; la tarea programada mensual que la invoca
       aún no está implementada.
+    casos:
+      - nivel: integracion
+        pasos:
+          - Insertar un registro con fecha de hace 25 meses y otro de hace 23.
+          - Ejecutar fn_depurar_auditoria().
+        datos: Particiones mensuales de auditoria.
+        esperado: Desaparece el de 25 meses, queda el de 23 y se registra una constancia DEPURAR.
 
   # ------------------------------------------------------------------ RNF de seguridad
   - id: CA-RNF-SEG-001-1
@@ -144,6 +345,18 @@ criterios:
     descripcion: Toda ruta protegida responde 401 sin token.
     niveles: [integracion, e2e]
     e2e: [E2E-09]
+    casos:
+      - nivel: integracion
+        pasos:
+          - Llamar a cada endpoint de /api sin la cabecera Authorization (MatrizPermisosIntegracionTests).
+          - Llamar con un token alterado y con uno vencido.
+        datos: Los 20 endpoints protegidos con cuerpos válidos.
+        esperado: 401 NO_AUTENTICADO en Problem Details en todos.
+      - nivel: e2e
+        pasos:
+          - GET /api/v1/productos sin token desde la prueba.
+        datos: Sin sesión.
+        esperado: 401.
 
   - id: CA-RNF-SEG-001-D1
     requisito: RNF-SEG-001
@@ -151,27 +364,63 @@ criterios:
     origen: Requisito de RNF-SEG-001 ("Todo acceso exige sesión autenticada"), aplicado a la interfaz.
     niveles: [e2e]
     e2e: [E2E-09]
+    casos:
+      - nivel: e2e
+        pasos:
+          - Abrir /productos en un navegador sin sesión.
+        datos: Sin sesión.
+        esperado: Redirige a /login y no muestra la tabla de productos.
 
   - id: CA-RNF-SEG-001-2
     requisito: RNF-SEG-001
     descripcion: Ninguna contraseña se guarda en texto plano.
     niveles: [integracion]
+    casos:
+      - nivel: integracion
+        pasos:
+          - Crear un usuario por la API y cambiarle la contraseña.
+          - Crear dos usuarios con la misma contraseña.
+          - Buscar las contraseñas en la tabla usuario y en la auditoría.
+        datos: Contraseñas aleatorias que cumplen la política (letras y números).
+        esperado: password_hash es BCrypt de costo 12 ($2a$12$...), verificable con BCryptPasswordEncoder; hashes distintos con la misma contraseña; ni la contraseña ni el hash aparecen en la auditoría ni en la respuesta.
 
   - id: CA-RNF-SEG-002-1
     requisito: RNF-SEG-002
     descripcion: 100 % de las pruebas de la matriz pasan por interfaz y por API.
     niveles: [integracion, e2e]
+    observacion: Por API se recorren todos los endpoints publicados; por interfaz, E2E-08 cubre el vendedor.
+    casos:
+      - nivel: integracion
+        pasos:
+          - Recorrer cada endpoint contra cada rol y comprobar 2xx o 403.
+          - Verificar que la matriz probada cubra todos los endpoints publicados en /api.
+          - Verificar los permisos que lleva el token de cada rol.
+        datos: 20 endpoints × 6 roles; tabla rol_permiso de V1.
+        esperado: 120 de 120 combinaciones según la matriz 2.2; ningún endpoint sin probar; admin 26, gerente 22, jefe 8, comprador 7, vendedor 6 y auditor 4 permisos.
 
   - id: CA-RNF-SEG-003-1
     requisito: RNF-SEG-003
     descripcion: >-
       Cada operación de prueba genera su registro (usuario, fecha, IP, acción y valores antes y después).
     niveles: [integracion]
+    casos:
+      - nivel: integracion
+        pasos:
+          - Crear y modificar un producto por la API con el token del jefe.
+          - Leer los registros de auditoría de ese producto.
+        datos: Producto con margen 30 que se cambia a 45.
+        esperado: CREAR (sin antes) y MODIFICAR (antes 30.00, después 45.00), ambos con usuario_id del jefe e IP 127.0.0.1.
 
   - id: CA-RNF-SEG-003-2
     requisito: RNF-SEG-003
     descripcion: Retención de 24 meses.
     niveles: [integracion]
+    casos:
+      - nivel: integracion
+        pasos:
+          - Ejecutar la depuración con registros de 23 y 25 meses.
+        datos: Igual que CA-RF-SEG-002-3.
+        esperado: Se conserva el de 23 meses y se elimina el de 25.
 
   - id: CA-RNF-SEG-004-1
     requisito: RNF-SEG-004
@@ -180,6 +429,12 @@ criterios:
       usuario de la aplicación, son rechazados.
     niveles: [integracion]
     observacion: Por ahora cubre la auditoría; los documentos confirmados se agregarán con compras y ventas.
+    casos:
+      - nivel: integracion
+        pasos:
+          - Igual que CA-RF-SEG-002-2 (API y SQL sobre auditoria).
+        datos: Último registro de auditoría.
+        esperado: 405 por la API y P0001 por SQL.
 
   - id: CA-RNF-SEG-005-1
     requisito: RNF-SEG-005
@@ -188,17 +443,41 @@ criterios:
     observacion: >-
       Requiere un escaneo OWASP sobre la aplicación desplegada. El backend ya prueba partes (búsqueda sin
       inyección de comodines, CORS, cabeceras de seguridad), pero no reemplazan el escaneo.
+    casos:
+      - nivel: e2e
+        pasos:
+          - Levantar docker-compose.e2e.yml y ejecutar un escaneo OWASP ZAP (baseline y API con openapi.yaml).
+        datos: URL del frontend y especificación docs/api/openapi.yaml.
+        esperado: 0 alertas de riesgo alto. (Prueba prevista.)
 
   - id: CA-RNF-SEG-005-2
     requisito: RNF-SEG-005
     descripcion: Bloqueo tras 5 intentos fallidos.
     niveles: [unitaria, integracion]
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Igual que el caso unitario de CA-RF-SEG-001-1.
+        datos: Usuario con 4 intentos fallidos.
+        esperado: El quinto fallo bloquea la cuenta.
+      - nivel: integracion
+        pasos:
+          - Igual que el caso de integración de CA-RF-SEG-001-1.
+        datos: Usuario gerente.
+        esperado: 423 CUENTA_BLOQUEADA.
 
   - id: CA-RNF-SEG-006-1
     requisito: RNF-SEG-006
     descripcion: HTTPS obligatorio.
     niveles: [integracion, e2e]
     observacion: El backend verifica la cabecera HSTS; la redirección a HTTPS depende del despliegue.
+    casos:
+      - nivel: integracion
+        pasos:
+          - Hacer solicitudes HTTPS (secure) con respuestas 200, 401 y 403, al login y al actuator.
+          - Hacer la misma solicitud por HTTP plano.
+        datos: Tokens de admin y vendedor; sin token.
+        esperado: Toda respuesta HTTPS lleva Strict-Transport-Security max-age=31536000 ; includeSubDomains, además de nosniff y X-Frame-Options DENY; por HTTP no se envía HSTS.
 
   - id: CA-RNF-SEG-006-2
     requisito: RNF-SEG-006
@@ -207,6 +486,51 @@ criterios:
     observacion: >-
       El backend emite tokens que vencen 30 minutos después de emitidos y rechaza los vencidos; la
       renovación mientras el usuario está activo se verificará en e2e.
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Emitir un token con ServicioToken y reloj fijo.
+        datos: Reloj en 2026-10-21 10:00.
+        esperado: exp = iat + 30 minutos; expiresIn = 1800.
+      - nivel: integracion
+        pasos:
+          - Llamar a /api/v1/auth/me con un token vencido.
+        datos: Token firmado con la clave de la aplicación y exp en el pasado.
+        esperado: 401.
+
+  # ------------------------------------------------------------------ RNF de eficiencia
+  - id: CA-RNF-REN-001-1
+    requisito: RNF-REN-001
+    descripcion: >-
+      Búsqueda por código y confirmación de venta rápidas con el volumen de diseño: percentil 95 menor a 1 s.
+    niveles: [carga]
+    medicion: k6
+    observacion: >-
+      k6 mide búsqueda por nombre, consulta por id y creación de productos (código de barras y ventas aún no
+      existen). Solo el modo carga sobre ferreteria_carga usa el volumen de diseño; el modo humo de la CI
+      corre con 1 usuario sobre el escenario de prueba y es una verificación débil.
+    casos:
+      - nivel: carga
+        pasos:
+          - Cargar load-tests/datos-volumen.sql en ferreteria_carga y levantar el entorno contra esa base.
+          - Ejecutar k6 run load-tests/productos.js (50 usuarios, 5 minutos; 70 % buscar, 20 % consultar, 10 % crear).
+        datos: 100.000 presentaciones y 50.000 productos; usuario jefe.
+        esperado: p95 de http_req_duration < 1000 ms (umbral de k6).
+
+  - id: CA-RNF-REN-003-1
+    requisito: RNF-REN-003
+    descripcion: 50 usuarios concurrentes en prueba de carga sin errores ni saldos negativos.
+    niveles: [carga]
+    medicion: k6
+    observacion: >-
+      Solo cuenta un resumen de k6 en modo carga (50 usuarios virtuales o más); el modo humo no lo
+      demuestra. Los saldos negativos se verificarán cuando existan ventas.
+    casos:
+      - nivel: carga
+        pasos:
+          - Igual que CA-RNF-REN-001-1, con 50 usuarios virtuales constantes.
+        datos: 100.000 presentaciones; 50 VU durante 5 minutos.
+        esperado: http_req_failed < 1 % (umbral de k6) y todas las comprobaciones de respuesta aprobadas.
 
   # ------------------------------------------------------------------ RNF de interacción
   - id: CA-RNF-INT-002-1
@@ -214,6 +538,23 @@ criterios:
     descripcion: Cada regla de validación muestra campo y causa.
     niveles: [unitaria, integracion, e2e]
     e2e: [E2E-03]
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Validar con productoSchema cada regla (obligatorios, longitudes, rango del margen, garantía).
+          - Renderizar ProductoFormDialog y enviarlo con errores.
+        datos: Un valor inválido por regla; idioma es y en.
+        esperado: Un mensaje por campo con su causa, traducido.
+      - nivel: integracion
+        pasos:
+          - Enviar a la API peticiones inválidas de producto y de login, con Accept-Language es y en.
+        datos: Margen 501, nombre corto, campos vacíos, orden desconocido.
+        esperado: 400 en Problem Details con un error por campo (campo y mensaje) en el idioma pedido.
+      - nivel: e2e
+        pasos:
+          - Igual que el caso e2e de CA-RF-PRO-001-2.
+        datos: Formulario vacío y valores fuera de rango.
+        esperado: Cada campo muestra su etiqueta y "Este campo es obligatorio" u otra causa.
 
   - id: CA-RNF-INT-003-1
     requisito: RNF-INT-003
@@ -223,6 +564,17 @@ criterios:
     observacion: >-
       El backend formatea fechas en mensajes (bloqueo de cuenta); E2E-10 verifica la moneda en pantalla
       ($ 18.000). Las fechas en pantalla se verificarán cuando una página las muestre.
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Bloquear una cuenta con el reloj fijo y leer el mensaje.
+        datos: Reloj en UTC; desbloqueo 15 minutos después.
+        esperado: La hora aparece en Bogotá con formato dd/MM/yyyy HH:mm.
+      - nivel: e2e
+        pasos:
+          - Abrir Productos como jefe.
+        datos: Producto del escenario con último costo 18.000.
+        esperado: La moneda se muestra como $ 18.000.
 
   - id: CA-RNF-INT-003-D1
     requisito: RNF-INT-003
@@ -232,12 +584,26 @@ criterios:
     origen: Requisito de RNF-INT-003 (interfaz en español) y regla de internacionalización del proyecto.
     niveles: [e2e]
     e2e: [E2E-10]
+    casos:
+      - nivel: e2e
+        pasos:
+          - Entrar y comprobar el idioma; cambiar a inglés.
+          - Recargar y cerrar la sesión.
+        datos: Usuario jefe.
+        esperado: Arranca en español (lang="es"); en inglés cambian títulos, botones, menú y estados; la elección sobrevive a recargar y a cerrar sesión.
 
   # ------------------------------------------------------------------ RNF de mantenibilidad
   - id: CA-RNF-MAN-001-1
     requisito: RNF-MAN-001
     descripcion: Cobertura del backend mayor o igual a 70 %.
     niveles: [unitaria, integracion]
+    medicion: jacoco
     observacion: >-
       Lo verifica la regla jacoco:check del pom (cobertura de líneas >= 0.70) en ./mvnw verify, no una
-      prueba con nombre.
+      prueba con nombre; scripts/criterios.mjs lee backend/target/site/jacoco/jacoco.csv.
+    casos:
+      - nivel: integracion
+        pasos:
+          - Ejecutar ./mvnw verify (pruebas unitarias y de integración con el agente de JaCoCo).
+        datos: Todas las pruebas del backend.
+        esperado: Cobertura de líneas >= 70 %; si no, jacoco:check hace fallar el build.

@@ -11,6 +11,8 @@
 #   ... ejecutar e2e/playwright y e2e/selenium contra http://127.0.0.1:${E2E_PUERTO:-8088} ...
 #   docker compose -f docker-compose.e2e.yml down
 # La base vive en memoria (tmpfs): cada "up" tras un "down" empieza con los datos de prueba limpios.
+# Prueba de carga (load-tests/README.md): con E2E_DB_NOMBRE=ferreteria_carga el mismo entorno usa una
+# base aparte, sobre la que load-tests/datos-volumen.sql genera el volumen de diseño.
 
 name: ferreteria-e2e
 
@@ -18,14 +20,14 @@ services:
   postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_DB: ferreteria_e2e
+      POSTGRES_DB: ${E2E_DB_NOMBRE:-ferreteria_e2e}
       POSTGRES_USER: ferreteria
       POSTGRES_PASSWORD: ${E2E_DB_PASSWORD:?Defina E2E_DB_PASSWORD en .env}
       TZ: America/Bogota
     tmpfs:
       - /var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ferreteria -d ferreteria_e2e"]
+      test: ["CMD-SHELL", "pg_isready -U ferreteria -d $${POSTGRES_DB}"]
       interval: 3s
       timeout: 3s
       retries: 30
@@ -35,7 +37,7 @@ services:
       context: ./backend
     environment:
       SPRING_PROFILES_ACTIVE: e2e
-      DB_URL: jdbc:postgresql://postgres:5432/ferreteria_e2e
+      DB_URL: jdbc:postgresql://postgres:5432/${E2E_DB_NOMBRE:-ferreteria_e2e}
       DB_USER: ferreteria
       DB_PASSWORD: ${E2E_DB_PASSWORD}
       JWT_SECRET: ${E2E_JWT_SECRET:?Defina E2E_JWT_SECRET en .env (32 caracteres o más)}

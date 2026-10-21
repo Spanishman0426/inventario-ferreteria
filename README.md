@@ -67,6 +67,8 @@ inventario-ferreteria/
 - [Plan y casos de prueba de la base de datos](docs/plan-pruebas-bd.md)
 - [API REST: contrato OpenAPI y ejemplos](docs/api/README.md)
 - [Pruebas end-to-end (Playwright y Selenium)](docs/pruebas-e2e.md)
+- [Criterios de aceptación (catálogo)](docs/criterios-aceptacion.yaml) y [casos de prueba](docs/pruebas/casos-de-prueba.md)
+- [Pruebas de carga con k6](load-tests/README.md)
 
 ## Cómo ejecutar
 
@@ -193,7 +195,25 @@ cd ../..; docker compose -f docker-compose.e2e.yml down
 
 ### Pruebas de carga
 
-Pendiente: se completa en la fase de pruebas de carga.
+Requieren k6 y el entorno de `docker-compose.e2e.yml`. Modos, base de volumen `ferreteria_carga` y umbrales en
+[load-tests/README.md](load-tests/README.md).
+
+```powershell
+k6 run -e K6_MODO=humo load-tests/productos.js     # 1 usuario, 30 s (CI)
+k6 run load-tests/productos.js                     # 50 usuarios, 5 min, sobre ferreteria_carga
+```
+
+### Casos de prueba y cumplimiento de criterios
+
+Requieren Node.js 24. Los casos se generan desde `docs/criterios-aceptacion.yaml`; el cumplimiento se calcula con
+los reportes JUnit XML del backend, el frontend, Playwright y Selenium, el resumen de k6 y la cobertura de JaCoCo
+que existan en ese momento (conviene ejecutar antes las pruebas que se quieran incluir).
+
+```powershell
+cd scripts; npm ci; cd ..                          # una sola vez
+node scripts/casos-de-prueba.mjs                   # docs/pruebas/casos-de-prueba.md
+node scripts/criterios.mjs                         # reportes/criterios/criterios.md y criterios.json
+```
 
 ### CI/CD
 
