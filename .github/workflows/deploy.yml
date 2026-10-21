@@ -1,0 +1,311 @@
+# Nombre: deploy.yml
+# Descripción: Despliegue continuo a producción (Render + Neon). Se dispara cuando el workflow CI termina con
+#              éxito por un push a main (o a mano desde Actions, solo en main), usa el environment
+#              "production", llama los Deploy Hooks de Render del backend y del frontend y verifica por HTTPS
+#              que la nueva versión quedó publicada y sana (.github/scripts/verificar_despliegue.sh). Si algo
+#              falla, abre o comenta un issue deploy-fallo y avisa por webhook si existe NOTIFICACION_WEBHOOK;
+#              un despliegue correcto cierra los issues deploy-fallo abiertos. Guía en docs/despliegue.md.
+# Fecha de creación: 2026-10-21
+# Última actualización: 2026-10-21
+# Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
+
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  # Redespliegue manual del último commit de main (por ejemplo, tras cambiar una variable en Render)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Un despliegue a la vez; uno nuevo espera a que termine el anterior en lugar de cancelarlo
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  # Commit que la CI probó (en ejecución manual, el último de main)
+  COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+  # Ejecución de CI que autorizó el despliegue (vacía en ejecución manual)
+  URL_CI: ${{ github.event.workflow_run.html_url }}
+
+jobs:
+  # ---------------------------------------------------------------------------------------------
+  # 1. Desplegar en Render y verificar
+  # ---------------------------------------------------------------------------------------------
+  desplegar:
+    name: Desplegar en Render
+    # Solo CI exitosa por push a main (no pull requests), o ejecución manual sobre main
+    if: >-
+      (github.event_name == 'workflow_run'
+        && github.event.workflow_run.conclusion == 'success'
+        && github.event.workflow_run.event == 'push')
+      || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    # 15 min de espera de la nueva versión + 3 min de humo + margen
+    timeout-minutes: 25
+    environment:
+      name: production
+      url: ${{ vars.URL_FRONTEND }}
+    outputs:
+      desplegado: ${{ steps.hooks.outputs.desplegado }}
+      motivo: ${{ steps.configuracion.outputs.motivo || steps.hooks.outputs.motivo || steps.humo.outputs.motivo }}
+    env:
+      URL_BACKEND: ${{ vars.URL_BACKEND }}
+      URL_FRONTEND: ${{ vars.URL_FRONTEND }}
+    steps:
+      - name: Descargar el script de verificación
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.COMMIT }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Comprobar que el commit sigue siendo el último de main
+        id: vigente
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # El Deploy Hook de Render compila siempre el último commit de main. Si entró otro push mientras la
+          # CI corría, este despliegue se omite: la CI de ese commit más nuevo disparará su propio despliegue.
+          ultimo=$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)
+          if [ "$ultimo" != "$COMMIT" ]; then
+            echo "vigente=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::main avanzó a ${ultimo:0:7}; se omite el despliegue de ${COMMIT:0:7}."
+            echo "Despliegue de \`${COMMIT:0:7}\` omitido: main ya está en \`${ultimo:0:7}\`, que se desplegará con su propia CI." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "vigente=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verificar la configuración del environment production
+        id: configuracion
+        if: steps.vigente.outputs.vigente == 'true'
+        env:
+          HOOK_BACKEND: ${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}
+          HOOK_FRONTEND: ${{ secrets.RENDER_DEPLOY_HOOK_FRONTEND }}
+        run: |
+          set -euo pipefail
+          faltan=()
+          [ -n "$HOOK_BACKEND" ] || faltan+=("secreto RENDER_DEPLOY_HOOK_BACKEND")
+          [ -n "$HOOK_FRONTEND" ] || faltan+=("secreto RENDER_DEPLOY_HOOK_FRONTEND")
+          [ -n "$URL_BACKEND" ] || faltan+=("variable URL_BACKEND")
+          [ -n "$URL_FRONTEND" ] || faltan+=("variable URL_FRONTEND")
+          if [ ${#faltan[@]} -gt 0 ]; then
+            lista=$(printf '%s; ' "${faltan[@]}")
+            motivo="Faltan en el environment production: ${lista%; } (docs/despliegue.md, sección 7)."
+            echo "motivo=${motivo}" >> "$GITHUB_OUTPUT"
+            echo "::error::${motivo}"
+            exit 1
+          fi
+
+      - name: Llamar los Deploy Hooks de Render
+        id: hooks
+        if: steps.vigente.outputs.vigente == 'true'
+        env:
+          HOOK_BACKEND: ${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}
+          HOOK_FRONTEND: ${{ secrets.RENDER_DEPLOY_HOOK_FRONTEND }}
+        run: |
+          set -euo pipefail
+          # Las URL de los hooks son secretas: GitHub las enmascara y nunca se imprimen
+          for servicio in backend frontend; do
+            if [ "$servicio" = backend ]; then hook="$HOOK_BACKEND"; else hook="$HOOK_FRONTEND"; fi
+            codigo=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 30 \
+                          --retry 3 --retry-all-errors -X POST "$hook" || echo 000)
+            if [ "${codigo:0:1}" != "2" ]; then
+              echo "motivo=El Deploy Hook del ${servicio} respondió HTTP ${codigo}." >> "$GITHUB_OUTPUT"
+              echo "::error::El Deploy Hook del ${servicio} respondió HTTP ${codigo}."
+              exit 1
+            fi
+            echo "Deploy Hook del ${servicio}: HTTP ${codigo}"
+          done
+          echo "desplegado=true" >> "$GITHUB_OUTPUT"
+
+      - name: Verificación de humo por HTTPS
+        id: humo
+        if: steps.hooks.outputs.desplegado == 'true'
+        run: bash .github/scripts/verificar_despliegue.sh "$URL_BACKEND" "$URL_FRONTEND" "$COMMIT"
+
+      - name: Resumen del despliegue
+        if: ${{ !cancelled() && steps.vigente.outputs.vigente == 'true' }}
+        env:
+          RESULTADO: ${{ job.status }}
+          MOTIVO: ${{ steps.configuracion.outputs.motivo || steps.hooks.outputs.motivo || steps.humo.outputs.motivo }}
+        run: |
+          {
+            if [ "$RESULTADO" = success ]; then
+              echo "## ✅ Despliegue a producción correcto"
+            else
+              echo "## ❌ Despliegue a producción fallido"
+            fi
+            echo ""
+            echo "| Dato | Valor |"
+            echo "| --- | --- |"
+            echo "| Commit | \`${COMMIT:0:7}\` |"
+            echo "| Frontend | ${URL_FRONTEND:-sin configurar} |"
+            echo "| Backend | ${URL_BACKEND:-sin configurar} |"
+            if [ -n "$URL_CI" ]; then echo "| CI que lo autorizó | ${URL_CI} |"; fi
+            if [ -n "$MOTIVO" ]; then echo "| Causa | ${MOTIVO} |"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------------------------
+  # 2. Reportar el fallo: crea o comenta el issue deploy-fallo y avisa por webhook
+  # ---------------------------------------------------------------------------------------------
+  reportar-fallo:
+    name: Reportar fallo de despliegue
+    needs: desplegar
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    env:
+      # Opcional: URL de un webhook de Discord o Slack (el mismo de la CI). Si no existe, el aviso se omite.
+      NOTIFICACION_WEBHOOK: ${{ secrets.NOTIFICACION_WEBHOOK }}
+      MOTIVO: ${{ needs.desplegar.outputs.motivo }}
+    steps:
+      - name: Crear o comentar el issue deploy-fallo
+        id: issue
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sha = process.env.COMMIT;
+            const marca = '<!-- deploy-fallo -->';
+            const urlEjecucion = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const motivo = process.env.MOTIVO || 'Sin causa registrada: revisa el log del job "Desplegar en Render".';
+
+            let autor = 'desconocido';
+            try {
+              const { data } = await github.rest.repos.getCommit({ owner, repo, ref: sha });
+              const nombre = data.commit?.author?.name ?? 'desconocido';
+              autor = data.author?.login ? `${nombre} (@${data.author.login})` : nombre;
+            } catch (error) {
+              core.warning(`No se pudo leer el autor del commit: ${error.message}`);
+            }
+
+            const detalle = [
+              '| Dato | Valor |',
+              '| --- | --- |',
+              `| Commit | [\`${sha.substring(0, 7)}\`](${context.serverUrl}/${owner}/${repo}/commit/${sha}) |`,
+              `| Autor del commit | ${autor} |`,
+              `| Disparado por | @${context.actor} (${context.eventName}) |`,
+              `| CI que lo autorizó | ${process.env.URL_CI || 'ejecución manual'} |`,
+              `| Despliegue | [${context.workflow} #${context.runNumber}](${urlEjecucion}) |`,
+              `| Causa | ${motivo.replace(/\|/g, '\\|')} |`,
+              '',
+              'Si producción quedó mal, la sección 9 de `docs/despliegue.md` explica cómo volver a la versión anterior.',
+            ].join('\n');
+
+            // Etiqueta deploy-fallo (se crea la primera vez)
+            try {
+              await github.rest.issues.getLabel({ owner, repo, name: 'deploy-fallo' });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              await github.rest.issues.createLabel({
+                owner, repo, name: 'deploy-fallo', color: 'b60205',
+                description: 'El despliegue a producción falló',
+              });
+            }
+
+            const abiertos = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', labels: 'deploy-fallo', per_page: 100,
+            });
+            const existente = abiertos.find((i) => !i.pull_request && (i.body ?? '').includes(marca));
+
+            let numero;
+            let url;
+            if (existente) {
+              numero = existente.number;
+              url = existente.html_url;
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: numero,
+                body: `## ❌ El despliegue sigue fallando\n\n${detalle}`,
+              });
+              core.notice(`Se comentó el issue #${numero}.`);
+            } else {
+              const { data } = await github.rest.issues.create({
+                owner, repo,
+                title: 'El despliegue a producción falló',
+                labels: ['deploy-fallo'],
+                body: `${marca}\n## ❌ El despliegue a producción falló\n\n${detalle}\n\n` +
+                  '_Este issue se comenta en cada nuevo fallo y se cierra solo con el siguiente despliegue correcto._',
+              });
+              numero = data.number;
+              url = data.html_url;
+              core.notice(`Se creó el issue #${numero}.`);
+            }
+
+            try {
+              await github.rest.issues.addAssignees({ owner, repo, issue_number: numero, assignees: [context.actor] });
+            } catch (error) {
+              core.warning(`No se pudo asignar a @${context.actor}: ${error.message}`);
+            }
+            core.setOutput('issue_url', url);
+
+      - name: Avisar por webhook (Discord o Slack)
+        if: ${{ !cancelled() && env.NOTIFICACION_WEBHOOK != '' }}
+        continue-on-error: true
+        env:
+          ISSUE_URL: ${{ steps.issue.outputs.issue_url }}
+          URL_EJECUCION: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # Discord espera el campo "content"; Slack (y la mayoría de webhooks) espera "text"
+          case "$NOTIFICACION_WEBHOOK" in
+            *discord.com/api/webhooks*|*discordapp.com/api/webhooks*) campo=content ;;
+            *) campo=text ;;
+          esac
+          mensaje="❌ Falló el despliegue a producción del commit ${COMMIT:0:7}."
+          mensaje+=" Causa: ${MOTIVO:-ver el log}."
+          mensaje+=" Issue: ${ISSUE_URL:-no se pudo crear} · Ejecución: ${URL_EJECUCION}"
+          jq -n --arg campo "$campo" --arg mensaje "$mensaje" '{($campo): $mensaje}' \
+            | curl --fail --silent --show-error --max-time 15 -X POST \
+                -H 'Content-Type: application/json' --data @- "$NOTIFICACION_WEBHOOK"
+          echo "Aviso enviado al webhook."
+
+  # ---------------------------------------------------------------------------------------------
+  # 3. Cerrar fallos: un despliegue correcto cierra los issues deploy-fallo abiertos
+  # ---------------------------------------------------------------------------------------------
+  cerrar-fallo:
+    name: Cerrar issue de despliegue
+    needs: desplegar
+    if: ${{ !failure() && !cancelled() && needs.desplegar.outputs.desplegado == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Comentar y cerrar los issues deploy-fallo
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sha = process.env.COMMIT;
+            const abiertos = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', labels: 'deploy-fallo', per_page: 100,
+            });
+            const issues = abiertos.filter((i) => !i.pull_request && (i.body ?? '').includes('<!-- deploy-fallo -->'));
+            if (issues.length === 0) {
+              core.info('No hay issues deploy-fallo abiertos.');
+              return;
+            }
+            const urlEjecucion = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            for (const issue of issues) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `## ✅ Producción vuelve a estar desplegada\n\n` +
+                  `Commit [\`${sha.substring(0, 7)}\`](${context.serverUrl}/${owner}/${repo}/commit/${sha}) · ` +
+                  `[${context.workflow} #${context.runNumber}](${urlEjecucion}). Se cierra el issue.`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: issue.number, state: 'closed', state_reason: 'completed',
+              });
+              core.notice(`Se cerró el issue #${issue.number}.`);
+            }

@@ -69,6 +69,8 @@ inventario-ferreteria/
 - [Pruebas end-to-end (Playwright y Selenium)](docs/pruebas-e2e.md)
 - [Criterios de aceptación (catálogo)](docs/criterios-aceptacion.yaml) y [casos de prueba](docs/pruebas/casos-de-prueba.md)
 - [Pruebas de carga con k6](load-tests/README.md)
+- [Integración continua (GitHub Actions)](docs/ci-cd.md)
+- [Despliegue a producción (Render + Neon)](docs/despliegue.md)
 
 ## Cómo ejecutar
 
