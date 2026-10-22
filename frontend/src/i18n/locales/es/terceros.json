@@ -1,0 +1,81 @@
+{
+  "titulo": "Clientes y proveedores",
+  "nuevo": "Nuevo tercero",
+  "buscar": "Buscar por nombre, razón social o identificación",
+  "sinResultados": "No hay terceros que coincidan con la búsqueda.",
+  "predefinido": "Predefinido",
+  "columnas": {
+    "identificacion": "Identificación",
+    "nombre": "Nombre o razón social",
+    "roles": "Roles",
+    "telefono": "Teléfono",
+    "estado": "Estado",
+    "acciones": "Acciones"
+  },
+  "filtros": {
+    "rol": "Rol",
+    "tipoPersona": "Tipo de persona",
+    "estado": "Estado",
+    "todos": "Todos"
+  },
+  "rol": {
+    "CLIENTE": "Cliente",
+    "PROVEEDOR": "Proveedor"
+  },
+  "tipoPersona": {
+    "NATURAL": "Persona natural",
+    "JURIDICA": "Persona jurídica"
+  },
+  "tipoIdentificacion": {
+    "CC": "Cédula de ciudadanía (CC)",
+    "NIT": "NIT"
+  },
+  "estado": {
+    "ACTIVO": "Activo",
+    "INACTIVO": "Inactivo"
+  },
+  "acciones": {
+    "editar": "Editar {{nombre}}",
+    "ver": "Ver {{nombre}}",
+    "desactivar": "Desactivar {{nombre}}",
+    "activar": "Activar {{nombre}}",
+    "guardar": "Guardar",
+    "cerrar": "Cerrar",
+    "confirmarDesactivar": "Desactivar",
+    "confirmarActivar": "Activar"
+  },
+  "formulario": {
+    "tituloCrear": "Nuevo tercero",
+    "tituloEditar": "Editar tercero",
+    "tituloVer": "Datos del tercero",
+    "tipoPersona": "Tipo de persona",
+    "tipoIdentificacion": "Tipo de identificación",
+    "numeroIdentificacion": "Número de identificación",
+    "digitoVerificacion": "DV",
+    "ayudaDigito": "Se calcula al escribir el NIT; puede corregirlo.",
+    "nombre": "Nombre",
+    "apellido": "Apellido",
+    "razonSocial": "Razón social",
+    "direccion": "Dirección",
+    "telefono": "Teléfono",
+    "correo": "Correo (opcional)",
+    "roles": "Roles",
+    "esCliente": "Cliente",
+    "esProveedor": "Proveedor",
+    "sinPermisoRol": "Su rol no puede asignar el rol {{rol}}.",
+    "soloLecturaPermisos": "Solo puede consultar este tercero: es {{roles}} y su rol no tiene permiso para editar terceros de ese tipo.",
+    "soloLecturaConsumidorFinal": "El Consumidor final viene predefinido en el sistema y no se puede editar ni desactivar."
+  },
+  "confirmacion": {
+    "desactivarTitulo": "¿Desactivar el tercero?",
+    "desactivarMensaje": "«{{nombre}}» se conserva con su historial, pero queda inactivo.",
+    "activarTitulo": "¿Activar el tercero?",
+    "activarMensaje": "«{{nombre}}» volverá a estar activo."
+  },
+  "notificaciones": {
+    "creado": "Tercero «{{nombre}}» registrado.",
+    "actualizado": "Tercero «{{nombre}}» actualizado.",
+    "desactivado": "Tercero «{{nombre}}» desactivado.",
+    "activado": "Tercero «{{nombre}}» activado."
+  }
+}

@@ -3,7 +3,7 @@
  * Descripción: Estructura de las páginas autenticadas: barra superior con navegación según permisos,
  *              usuario, selector de idioma y cierre de sesión; el contenido de la ruta va debajo.
  * Fecha de creación: 2026-10-21
- * Última actualización: 2026-10-21
+ * Última actualización: 2026-10-22
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 import { useState } from 'react';
@@ -21,17 +21,19 @@ import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 
 import useAuth from '../hooks/useAuth.js';
+import { PERMISOS_TERCEROS } from '../services/tercerosService.js';
 import ConfirmDialog from './ConfirmDialog.jsx';
 import LanguageSelector from './LanguageSelector.jsx';
 
 /**
  * Entradas del menú principal con el permiso que exige cada una (matriz 2.2). Solo se muestran las
- * que el usuario puede abrir.
+ * que el usuario puede abrir; con una lista de permisos basta uno.
  *
- * @type {{ruta: string, clave: string, permiso: string}[]}
+ * @type {{ruta: string, clave: string, permiso: string|string[]}[]}
  */
 const MENU = [
   { ruta: '/productos', clave: 'productos', permiso: 'CATALOGO_CONSULTAR' },
+  { ruta: '/terceros', clave: 'terceros', permiso: PERMISOS_TERCEROS },
   { ruta: '/catalogos', clave: 'catalogos', permiso: 'CONFIG_GESTIONAR' },
 ];
 

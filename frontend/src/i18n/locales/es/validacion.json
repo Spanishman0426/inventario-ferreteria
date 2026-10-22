@@ -6,5 +6,11 @@
   "entero": "Debe ser un número entero.",
   "rango": "Debe estar entre {{min}} y {{max}}.",
   "decimales": "Máximo {{max}} decimales.",
-  "opcionInvalida": "Seleccione una opción válida."
+  "opcionInvalida": "Seleccione una opción válida.",
+  "identificacionFormato": "Debe tener entre 5 y 15 dígitos, sin puntos ni guiones.",
+  "telefonoFormato": "Debe tener entre 7 y 10 dígitos.",
+  "correo": "Escriba un correo válido, por ejemplo nombre@dominio.com.",
+  "juridicaSoloNit": "Una persona jurídica solo se identifica con NIT.",
+  "digitoInvalido": "No corresponde al NIT; el dígito correcto es {{esperado}}.",
+  "rolObligatorio": "Marque al menos un rol: cliente o proveedor."
 }

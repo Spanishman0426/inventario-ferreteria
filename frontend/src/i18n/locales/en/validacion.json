@@ -6,5 +6,11 @@
   "entero": "Must be a whole number.",
   "rango": "Must be between {{min}} and {{max}}.",
   "decimales": "Maximum {{max}} decimal places.",
-  "opcionInvalida": "Select a valid option."
+  "opcionInvalida": "Select a valid option.",
+  "identificacionFormato": "Must have between 5 and 15 digits, without dots or hyphens.",
+  "telefonoFormato": "Must have between 7 and 10 digits.",
+  "correo": "Enter a valid email, for example name@domain.com.",
+  "juridicaSoloNit": "A legal entity can only be identified with a NIT.",
+  "digitoInvalido": "Does not match the NIT; the correct digit is {{esperado}}.",
+  "rolObligatorio": "Select at least one role: customer or supplier."
 }
