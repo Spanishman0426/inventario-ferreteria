@@ -9,6 +9,7 @@
 import { test as base, expect } from '@playwright/test';
 
 import { BarraSuperior } from '../pages/BarraSuperior.js';
+import { PaginaCatalogos } from '../pages/PaginaCatalogos.js';
 import { PaginaLogin } from '../pages/PaginaLogin.js';
 import { PaginaProductos } from '../pages/PaginaProductos.js';
 
@@ -18,6 +19,7 @@ import { PaginaProductos } from '../pages/PaginaProductos.js';
  * @typedef {object} PaginasApp
  * @property {PaginaLogin} paginaLogin página de inicio de sesión
  * @property {PaginaProductos} paginaProductos página de productos
+ * @property {PaginaCatalogos} paginaCatalogos página de catálogos (marcas y categorías)
  * @property {BarraSuperior} barra barra superior y selector de idioma
  */
 
@@ -26,6 +28,7 @@ export const test = base.extend(
   /** @type {import('@playwright/test').Fixtures<PaginasApp>} */ ({
     paginaLogin: async ({ page }, usar) => usar(new PaginaLogin(page)),
     paginaProductos: async ({ page }, usar) => usar(new PaginaProductos(page)),
+    paginaCatalogos: async ({ page }, usar) => usar(new PaginaCatalogos(page)),
     barra: async ({ page }, usar) => usar(new BarraSuperior(page)),
   }),
 );

@@ -11,11 +11,13 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
 
 import authEs from './locales/es/auth.json';
+import catalogosEs from './locales/es/catalogos.json';
 import comunEs from './locales/es/comun.json';
 import erroresEs from './locales/es/errores.json';
 import productosEs from './locales/es/productos.json';
 import validacionEs from './locales/es/validacion.json';
 import authEn from './locales/en/auth.json';
+import catalogosEn from './locales/en/catalogos.json';
 import comunEn from './locales/en/comun.json';
 import erroresEn from './locales/en/errores.json';
 import productosEn from './locales/en/productos.json';
@@ -52,6 +54,7 @@ i18n
       es: {
         auth: authEs,
         comun: comunEs,
+        catalogos: catalogosEs,
         errores: erroresEs,
         productos: productosEs,
         validacion: validacionEs,
@@ -59,12 +62,13 @@ i18n
       en: {
         auth: authEn,
         comun: comunEn,
+        catalogos: catalogosEn,
         errores: erroresEn,
         productos: productosEn,
         validacion: validacionEn,
       },
     },
-    ns: ['comun', 'auth', 'productos', 'errores', 'validacion'],
+    ns: ['comun', 'auth', 'productos', 'catalogos', 'errores', 'validacion'],
     defaultNS: 'comun',
     supportedLngs: IDIOMAS,
     fallbackLng: IDIOMA_POR_DEFECTO,

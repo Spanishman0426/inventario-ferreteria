@@ -438,6 +438,17 @@ SELECT fn_codigo_interno(1);                           -- esperado: 200000000001
 
 Las pruebas de reglas de negocio (saldos negativos, períodos cerrados, inmutabilidad, separación de funciones) y las consultas base para reportes van en el siguiente entregable, con datos de prueba.
 
+### 6.4 Migraciones Flyway del backend
+
+El backend aplica el esquema con Flyway (`backend/src/main/resources/db/migration`). El script de esta sección nunca se modifica: cada cambio posterior es una migración nueva justificada por un requisito.
+
+| Migración | Contenido | Justificación |
+| --- | --- | --- |
+| `V1__esquema_inicial.sql` | El script `01_esquema_inventario_ferreteria.sql`, sin el BEGIN/COMMIT propio (Flyway maneja la transacción). | Modelo de datos completo. |
+| `V2__reportes.sql` | Las 13 funciones del esquema `reportes` (`04_consultas_reportes.sql`). | RF-REP-001, RF-MOV-001. |
+| `V3__auditoria_ignora_control_acceso.sql` | Nueva versión de `fn_auditar` (ver RN-28 en la sección 4). | RF-SEG-002: exactamente un registro por operación. |
+| `V4__resincronizar_identidad_marca_categoria.sql` | `setval` de las secuencias IDENTITY de `marca` y `categoria` al mayor `id`; sin filas, la deja lista para empezar en 1 (`is_called = false`). No cambia tablas ni datos y es idempotente. | RF-CFG-001: la aplicación empieza a crear marcas y categorías; si la carga manual de producción usó ids explícitos, el primer alta chocaría con la clave primaria. |
+
 ## 7. Trazabilidad requisitos → tablas
 
 Los 27 requisitos funcionales tienen al menos una tabla que almacena sus datos y ninguna tabla queda sin requisito que la justifique.

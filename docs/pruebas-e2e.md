@@ -1,7 +1,7 @@
 <!--
   Nombre: pruebas-e2e.md
   Descripción: Guía de las pruebas end-to-end del frontend: entorno docker-compose.e2e.yml, perfil e2e del
-               backend, escenarios E2E-01 a E2E-10 con sus criterios, ejecución en Windows y Linux, y reportes
+               backend, escenarios E2E-01 a E2E-12 con sus criterios, ejecución en Windows y Linux, y reportes
                de Playwright y Selenium WebDriver.
   Fecha de creación: 2026-10-21
   Última actualización: 2026-10-21
@@ -10,7 +10,7 @@
 
 # Pruebas end-to-end (E2E)
 
-Los mismos 10 escenarios se automatizan dos veces, con **Playwright** (`e2e/playwright/`) y con **Selenium
+Los mismos 12 escenarios se automatizan dos veces, con **Playwright** (`e2e/playwright/`) y con **Selenium
 WebDriver + Mocha** (`e2e/selenium/`), contra el frontend compilado que levanta `docker-compose.e2e.yml`. Las dos
 suites usan el patrón Page Object y localizan los elementos por `data-testid`.
 
@@ -69,9 +69,11 @@ derivados del flujo principal, la matriz 2.2 o la regla de internacionalización
 | E2E-08 el vendedor no ve acciones de edición | CA-RF-SEG-001-2, CA-RF-PRO-003-3 | Sin botones de crear, editar ni desactivar, sin columna de costos; la API le responde 403 al crear y desactivar. |
 | E2E-09 ruta protegida sin sesión | CA-RNF-SEG-001-D1, CA-RNF-SEG-001-1 | `/productos` sin sesión lleva al login; `GET /api/v1/productos` sin token responde 401. |
 | E2E-10 cambio de idioma | CA-RNF-INT-003-D1, CA-RNF-INT-003-1 | Arranca en español (`lang="es"`), moneda `$ 18.000`; en inglés cambian títulos, botones, menú y estados; la elección sobrevive a recargar y a cerrar sesión. |
+| E2E-11 administrar marcas | CA-RF-CFG-001-3, CA-RF-CFG-001-D1 | El administrador crea una marca desde el menú Catálogos; aparece en el selector de marca de un producto nuevo; al desactivarla (cancelar no cambia nada, confirmar la deja Inactiva y sigue listada) ya no aparece en ese selector. |
+| E2E-12 el vendedor no administra catálogos | CA-RF-SEG-001-2 | No ve la entrada Catálogos del menú; `/catalogos` muestra acceso denegado; la API le responde 403 al crear y al desactivar una marca. |
 
-**Datos.** Las pruebas no borran nada (los productos solo se desactivan). Cada una crea sus productos con un nombre
-único (`E2E PW ...` o `E2E SE ...` más un sello de tiempo), y los que necesita de antemano los crea por API
+**Datos.** Las pruebas no borran nada (productos y marcas solo se desactivan). Cada una crea sus productos y marcas
+con un nombre único (`E2E PW ...` o `E2E SE ...` más un sello de tiempo), y los que necesita de antemano los crea por API
 (`e2e/comun/api.js`), así pueden repetirse sobre la misma base y las dos herramientas no chocan. El código común
 (entorno, datos esperados y cliente de la API) está en `e2e/comun/`.
 

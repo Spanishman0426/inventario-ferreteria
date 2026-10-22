@@ -1,8 +1,9 @@
 <!--
   Nombre: README.md
-  Descripción: Guía de la API REST con ejemplos JSON de petición y respuesta del catálogo de productos.
+  Descripción: Guía de la API REST con ejemplos JSON de petición y respuesta del catálogo de productos y de
+               la administración de marcas y categorías.
   Fecha de creación: 2026-10-20
-  Última actualización: 2026-10-20
+  Última actualización: 2026-10-21
   Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
 -->
 
@@ -153,14 +154,51 @@ Authorization: Bearer eyJ...
 
 Respuesta `204 No Content`, sin cuerpo.
 
+## Marcas y categorías — `/api/v1/marcas` y `/api/v1/categorias` (RF-CFG-001)
+
+Las dos rutas tienen las mismas operaciones. No hay DELETE (405): un elemento en uso no se elimina, solo se
+desactiva; los productos que ya lo tienen lo conservan y al editarlos pueden mantenerlo.
+
+| Operación | Permiso | Respuestas |
+| --- | --- | --- |
+| `GET /api/v1/marcas?q=&estado=&page=&size=&sort=` | `CATALOGO_CONSULTAR` | 200 página de `{ id, nombre, estado }`, 400, 401, 403 |
+| `GET /api/v1/marcas/activas` | `CATALOGO_CONSULTAR` | 200 `[{ "id": 1, "nombre": "Stanley" }, ...]` sin paginar, por nombre |
+| `POST /api/v1/marcas` | `CONFIG_GESTIONAR` | 201 + `Location`, 400, 401, 403, 409 |
+| `PUT /api/v1/marcas/{id}` | `CONFIG_GESTIONAR` | 200, 400, 401, 403, 404, 409 |
+| `PATCH /api/v1/marcas/{id}/estado` | `CONFIG_GESTIONAR` | 200, 400, 401, 403, 404 |
+
+- `nombre`: obligatorio, 2 a 100 caracteres, se recorta; único sin distinguir mayúsculas (409 `CONFLICTO_UNICIDAD`).
+- `estado` (filtro y cuerpo del PATCH): `ACTIVO` o `INACTIVO`. Sin filtro, la búsqueda devuelve ambos.
+- `sort` admite `nombre` (por defecto) e `id`.
+
+```http
+POST /api/v1/categorias
+Authorization: Bearer eyJ...
+Content-Type: application/json
+
+{ "nombre": "Ferretería eléctrica" }
+```
+
+Respuesta `201 Created` con `Location: /api/v1/categorias/12`:
+
+```json
+{ "id": 12, "nombre": "Ferretería eléctrica", "estado": "ACTIVO" }
+```
+
+```http
+PATCH /api/v1/categorias/12/estado
+Content-Type: application/json
+
+{ "estado": "INACTIVO" }
+```
+
 ## Catálogos de referencia (selectores)
 
-Todos exigen `CATALOGO_CONSULTAR` y devuelven solo elementos activos.
+Exigen `CATALOGO_CONSULTAR` y devuelven solo elementos activos. Las marcas y categorías activas salen de
+`GET /api/v1/marcas/activas` y `GET /api/v1/categorias/activas` (sección anterior).
 
 | Ruta | Respuesta (ejemplo) |
 | --- | --- |
-| `GET /api/v1/marcas` | `[{ "id": 1, "nombre": "Stanley" }, ...]` ordenadas por nombre |
-| `GET /api/v1/categorias` | `[{ "id": 1, "nombre": "Herramientas manuales" }, ...]` ordenadas por nombre |
 | `GET /api/v1/unidades-medida` | `[{ "codigo": "UND", "nombre": "Unidad", "esDiscreta": true }, ...]` (13, por código) |
 | `GET /api/v1/tarifas-iva` | `[{ "id": 1, "nombre": "Excluido / exento", "porcentaje": 0.00 }, ...]` por porcentaje |
 

@@ -1,0 +1,46 @@
+{
+  "titulo": "Catalogs",
+  "pestanas": { "marcas": "Brands", "categorias": "Categories" },
+  "columnas": { "nombre": "Name", "estado": "Status", "acciones": "Actions" },
+  "estado": { "ACTIVO": "Active", "INACTIVO": "Inactive" },
+  "filtros": { "estado": "Status", "todos": "All" },
+  "acciones": {
+    "editar": "Edit {{nombre}}",
+    "desactivar": "Deactivate {{nombre}}",
+    "activar": "Activate {{nombre}}",
+    "guardar": "Save",
+    "confirmarDesactivar": "Deactivate",
+    "confirmarActivar": "Activate"
+  },
+  "formulario": { "nombre": "Name" },
+  "marcas": {
+    "nuevo": "New brand",
+    "buscar": "Search brands by name",
+    "sinResultados": "No brands match the search.",
+    "tituloCrear": "New brand",
+    "tituloEditar": "Edit brand",
+    "desactivarTitulo": "Deactivate the brand?",
+    "desactivarMensaje": "\"{{nombre}}\" will no longer be offered for new products. Products that already have it keep it.",
+    "activarTitulo": "Activate the brand?",
+    "activarMensaje": "\"{{nombre}}\" will be offered again in the product form.",
+    "creado": "Brand \"{{nombre}}\" created.",
+    "actualizado": "Brand \"{{nombre}}\" updated.",
+    "desactivado": "Brand \"{{nombre}}\" deactivated.",
+    "activado": "Brand \"{{nombre}}\" activated."
+  },
+  "categorias": {
+    "nuevo": "New category",
+    "buscar": "Search categories by name",
+    "sinResultados": "No categories match the search.",
+    "tituloCrear": "New category",
+    "tituloEditar": "Edit category",
+    "desactivarTitulo": "Deactivate the category?",
+    "desactivarMensaje": "\"{{nombre}}\" will no longer be offered for new products. Products that already have it keep it.",
+    "activarTitulo": "Activate the category?",
+    "activarMensaje": "\"{{nombre}}\" will be offered again in the product form.",
+    "creado": "Category \"{{nombre}}\" created.",
+    "actualizado": "Category \"{{nombre}}\" updated.",
+    "desactivado": "Category \"{{nombre}}\" deactivated.",
+    "activado": "Category \"{{nombre}}\" activated."
+  }
+}

@@ -1,6 +1,6 @@
 {
   "app": { "titulo": "Inventario Ferretería" },
-  "menu": { "productos": "Productos", "navegacion": "Navegación principal" },
+  "menu": { "productos": "Productos", "catalogos": "Catálogos", "navegacion": "Navegación principal" },
   "idioma": { "seleccionar": "Cambiar idioma", "es": "Español", "en": "English" },
   "sesion": {
     "salir": "Cerrar sesión",

@@ -36,7 +36,8 @@
     "tarifaIvaId": "Tarifa de IVA",
     "porcentajeIncremento": "Porcentaje de incremento",
     "control": "Tipo de control",
-    "plazoGarantiaMeses": "Plazo de garantía (meses)"
+    "plazoGarantiaMeses": "Plazo de garantía (meses)",
+    "opcionInactiva": "{{nombre}} (inactiva)"
   },
   "control": {
     "NINGUNO": "Ninguno",

@@ -7,7 +7,7 @@
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 
-/** Barra superior: usuario actual, idioma y cierre de sesión. */
+/** Barra superior: menú, usuario actual, idioma y cierre de sesión. */
 export class BarraSuperior {
   /**
    * @param {import('@playwright/test').Page} page página del navegador
@@ -16,6 +16,8 @@ export class BarraSuperior {
     this.page = page;
     this.usuarioActual = page.getByTestId('usuario-actual');
     this.menuProductos = page.getByTestId('menu-productos');
+    /** Entrada del menú que solo ve quien tiene CONFIG_GESTIONAR. */
+    this.menuCatalogos = page.getByTestId('menu-catalogos');
     this.selectorIdioma = page.getByTestId('idioma-selector');
     this.botonSalir = page.getByTestId('sesion-salir');
   }

@@ -1,0 +1,46 @@
+{
+  "titulo": "Catálogos",
+  "pestanas": { "marcas": "Marcas", "categorias": "Categorías" },
+  "columnas": { "nombre": "Nombre", "estado": "Estado", "acciones": "Acciones" },
+  "estado": { "ACTIVO": "Activo", "INACTIVO": "Inactivo" },
+  "filtros": { "estado": "Estado", "todos": "Todos" },
+  "acciones": {
+    "editar": "Editar {{nombre}}",
+    "desactivar": "Desactivar {{nombre}}",
+    "activar": "Activar {{nombre}}",
+    "guardar": "Guardar",
+    "confirmarDesactivar": "Desactivar",
+    "confirmarActivar": "Activar"
+  },
+  "formulario": { "nombre": "Nombre" },
+  "marcas": {
+    "nuevo": "Nueva marca",
+    "buscar": "Buscar marcas por nombre",
+    "sinResultados": "No hay marcas que coincidan con la búsqueda.",
+    "tituloCrear": "Nueva marca",
+    "tituloEditar": "Editar marca",
+    "desactivarTitulo": "¿Desactivar la marca?",
+    "desactivarMensaje": "«{{nombre}}» dejará de ofrecerse en los productos nuevos. Los productos que ya la tienen la conservan.",
+    "activarTitulo": "¿Activar la marca?",
+    "activarMensaje": "«{{nombre}}» volverá a ofrecerse en el formulario de producto.",
+    "creado": "Marca «{{nombre}}» registrada.",
+    "actualizado": "Marca «{{nombre}}» actualizada.",
+    "desactivado": "Marca «{{nombre}}» desactivada.",
+    "activado": "Marca «{{nombre}}» activada."
+  },
+  "categorias": {
+    "nuevo": "Nueva categoría",
+    "buscar": "Buscar categorías por nombre",
+    "sinResultados": "No hay categorías que coincidan con la búsqueda.",
+    "tituloCrear": "Nueva categoría",
+    "tituloEditar": "Editar categoría",
+    "desactivarTitulo": "¿Desactivar la categoría?",
+    "desactivarMensaje": "«{{nombre}}» dejará de ofrecerse en los productos nuevos. Los productos que ya la tienen la conservan.",
+    "activarTitulo": "¿Activar la categoría?",
+    "activarMensaje": "«{{nombre}}» volverá a ofrecerse en el formulario de producto.",
+    "creado": "Categoría «{{nombre}}» registrada.",
+    "actualizado": "Categoría «{{nombre}}» actualizada.",
+    "desactivado": "Categoría «{{nombre}}» desactivada.",
+    "activado": "Categoría «{{nombre}}» activada."
+  }
+}

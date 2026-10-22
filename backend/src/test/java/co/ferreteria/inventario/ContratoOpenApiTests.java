@@ -3,7 +3,7 @@
  * Descripción: Verifica que el contrato OpenAPI generado por el código coincida con docs/api/openapi.yaml;
  *              con -Dopenapi.actualizar=true reescribe el archivo.
  * Fecha de creación: 2026-10-20
- * Última actualización: 2026-10-20
+ * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 package co.ferreteria.inventario;
@@ -46,7 +46,7 @@ class ContratoOpenApiTests extends PruebaIntegracionApi {
 			#              cd backend && mvnw test -Dtest=ContratoOpenApiTests -Dopenapi.actualizar=true
 			#              La prueba ContratoOpenApiTests falla si el código y este archivo dejan de coincidir.
 			# Fecha de creación: 2026-10-20
-			# Última actualización: 2026-10-20
+			# Última actualización: 2026-10-21
 			# Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
 			""";
 

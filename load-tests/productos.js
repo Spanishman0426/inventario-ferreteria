@@ -152,9 +152,13 @@ export function setup() {
   }
   const token = login.json('accessToken');
 
-  const marcas = http.get(`${BASE_URL}/api/v1/marcas`, conToken(token, 'preparar')).json().map((m) => m.id);
+  // Solo marcas y categorías activas: con una inactiva el alta de producto respondería 400.
+  const marcas = http
+    .get(`${BASE_URL}/api/v1/marcas/activas`, conToken(token, 'preparar'))
+    .json()
+    .map((m) => m.id);
   const categorias = http
-    .get(`${BASE_URL}/api/v1/categorias`, conToken(token, 'preparar'))
+    .get(`${BASE_URL}/api/v1/categorias/activas`, conToken(token, 'preparar'))
     .json()
     .map((c) => c.id);
 

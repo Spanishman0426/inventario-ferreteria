@@ -1,24 +1,29 @@
 /**
  * Nombre: MigracionesFlywayTests.java
- * Descripción: Prueba de contexto que verifica que Flyway aplicó V1 (esquema), V2 (reportes), V3 (auditoría)
- *              y V100 (datos).
+ * Descripción: Prueba de contexto que verifica que Flyway aplicó V1 (esquema), V2 (reportes), V3 (auditoría),
+ *              V4 (secuencias de marca y categoría) y V100 (datos).
  * Fecha de creación: 2026-10-20
- * Última actualización: 2026-10-20
+ * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 package co.ferreteria.inventario;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Arranca el contexto completo contra PostgreSQL 18 en Testcontainers y revisa el resultado de las
@@ -33,12 +38,12 @@ class MigracionesFlywayTests {
 	private JdbcTemplate jdbc;
 
 	@Test
-	@DisplayName("Flyway aplicó con éxito V1, V2, V3 y los datos de prueba V100, en ese orden")
+	@DisplayName("Flyway aplicó con éxito V1, V2, V3, V4 y los datos de prueba V100, en ese orden")
 	void flywayAplicoLasMigraciones() {
 		List<String> versiones = jdbc.queryForList(
 				"SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL ORDER BY installed_rank",
 				String.class);
-		assertThat(versiones).containsExactly("1", "2", "3", "100");
+		assertThat(versiones).containsExactly("1", "2", "3", "4", "100");
 
 		Integer fallidas = jdbc.queryForObject(
 				"SELECT count(*) FROM flyway_schema_history WHERE NOT success", Integer.class);
@@ -86,6 +91,40 @@ class MigracionesFlywayTests {
 		assertThat(jdbc.queryForObject(
 				"SELECT sum(valor) FROM reportes.existencias_valorizadas('2026-08-31')", Long.class))
 				.isEqualTo(2_774_650L);
+	}
+
+	@Test
+	@DisplayName("V4 deja la secuencia de marca y categoría en el mayor id: el siguiente alta recibe max(id) + 1")
+	void v4ResincronizaConFilas() throws IOException {
+		jdbc.execute("SELECT setval(pg_get_serial_sequence('marca', 'id'), 1)");
+		jdbc.execute(scriptV4());
+
+		for (String tabla : List.of("marca", "categoria")) {
+			Long maximo = jdbc.queryForObject("SELECT max(id) FROM " + tabla, Long.class);
+			Map<String, Object> secuencia = jdbc.queryForMap("SELECT last_value, is_called FROM "
+					+ jdbc.queryForObject("SELECT pg_get_serial_sequence(?, 'id')", String.class, tabla));
+			assertThat(((Number) secuencia.get("last_value")).longValue()).as(tabla).isEqualTo(maximo);
+			assertThat(secuencia.get("is_called")).as(tabla).isEqualTo(true);
+		}
+	}
+
+	@Test
+	@Transactional
+	@DisplayName("V4 con la tabla vacía deja la secuencia lista para empezar en 1")
+	void v4ConTablaVaciaEmpiezaEnUno() throws IOException {
+		jdbc.execute("CREATE TEMP TABLE v4_vacia (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, nombre text)");
+		jdbc.execute("SELECT setval(pg_get_serial_sequence('v4_vacia', 'id'), 50)");
+		String script = scriptV4().replace("'marca'", "'v4_vacia'").replace("FROM marca", "FROM v4_vacia")
+				.replace("'categoria'", "'v4_vacia'").replace("FROM categoria", "FROM v4_vacia");
+		jdbc.execute(script);
+
+		assertThat(jdbc.queryForObject("INSERT INTO v4_vacia (nombre) VALUES ('a') RETURNING id", Long.class))
+				.isEqualTo(1L);
+	}
+
+	private static String scriptV4() throws IOException {
+		return new ClassPathResource("db/migration/V4__resincronizar_identidad_marca_categoria.sql")
+				.getContentAsString(StandardCharsets.UTF_8);
 	}
 
 }

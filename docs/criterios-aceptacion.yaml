@@ -199,24 +199,69 @@ criterios:
   - id: CA-RF-CFG-001-3
     requisito: RF-CFG-001
     descripcion: Un elemento de catálogo en uso no se elimina; solo se desactiva.
-    niveles: [integracion, e2e]
-    e2e: [E2E-06]
+    niveles: [unitaria, integracion, e2e]
+    e2e: [E2E-06, E2E-11]
     observacion: >-
-      Por ahora cubre el producto (DELETE /api/v1/productos/{id} lo deja INACTIVO, previa confirmación en la
-      interfaz); marcas, categorías y motivos se agregarán con la administración de RF-CFG-001.
+      Cubre productos, marcas y categorías. Los motivos se agregarán cuando se administren (fuera del
+      módulo M0).
     casos:
+      - nivel: unitaria
+        pasos:
+          - Llamar a MarcaService.cambiarEstado y CategoriaService.cambiarEstado con los repositorios simulados (backend).
+          - En CatalogosPage, pulsar Desactivar, cancelar y luego confirmar (frontend, servicio simulado).
+        datos: Marca Stanley activa y categoría Plomería ya inactiva.
+        esperado: >-
+          La marca queda INACTIVA sin llamar a delete; desactivar lo ya inactivo no escribe; la página no
+          ofrece eliminar, cancelar no llama al servicio y confirmar envía INACTIVO.
       - nivel: integracion
         pasos:
-          - DELETE /api/v1/productos/{id} con el token del jefe.
-          - Consultar el producto y repetir el DELETE.
-        datos: Producto creado para la prueba.
-        esperado: 204; el producto sigue existiendo como INACTIVO y consultable; repetirlo no audita de nuevo.
+          - Producto. DELETE /api/v1/productos/{id} con el token del jefe; consultarlo y repetir el DELETE.
+          - Marcas y categorías. Como administrador, crear una y un producto que la use; PATCH .../{id}/estado con INACTIVO y repetirlo; buscar con estado=INACTIVO, consultar el producto e intentar DELETE.
+        datos: Producto, marca y categoría con nombre único creados para la prueba.
+        esperado: >-
+          Producto: 204, sigue existiendo como INACTIVO y consultable. Marca o categoría: 200 INACTIVO, la fila
+          sigue en la base y en la búsqueda y el producto la conserva; DELETE responde 405. Repetir la
+          desactivación no audita de nuevo.
       - nivel: e2e
         pasos:
-          - Pulsar Desactivar y cancelar el diálogo.
-          - Pulsar Desactivar y confirmar.
-        datos: Producto creado por API.
-        esperado: Cancelar no cambia nada; confirmar lo deja Inactivo, sin botón de desactivar y aún editable.
+          - Producto (E2E-06). Pulsar Desactivar y cancelar el diálogo; pulsar Desactivar y confirmar.
+          - Marca (E2E-11). Como administrador, crearla en Catálogos; pulsar Desactivar y cancelar; pulsar Desactivar y confirmar.
+        datos: Producto creado por API; marca "E2E <herramienta> Marca <sello>".
+        esperado: >-
+          Cancelar no cambia nada; confirmar deja el producto Inactivo, sin botón de desactivar y aún
+          editable, y la marca Inactiva y aún listada.
+
+  - id: CA-RF-CFG-001-D1
+    requisito: RF-CFG-001
+    descripcion: >-
+      Los selectores del formulario de producto ofrecen solo marcas y categorías activas; un producto
+      existente conserva la suya aunque esté inactiva.
+    origen: >-
+      Paso 6 del flujo principal de RF-CFG-001 (el cambio aplica a lo nuevo) y precondición de RF-PRO-001
+      (marca y categoría registradas).
+    niveles: [unitaria, integracion, e2e]
+    e2e: [E2E-11]
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Abrir ProductoFormDialog para crear y para editar un producto cuya marca y categoría no están activas.
+          - Listar los activos con MarcaService.listarActivos (backend).
+        datos: Marca activa Stanley; producto con marca Philips y categoría Antigua inactivas.
+        esperado: >-
+          Al crear solo aparece Stanley; al editar aparecen "Philips (inactiva)" y "Antigua (inactiva)";
+          el servicio devuelve los activos ordenados.
+      - nivel: integracion
+        pasos:
+          - Crear una marca (y una categoría), usarla en un producto y desactivarla.
+          - Consultar /activas, crear otro producto con ella y editar el existente conservándola.
+        datos: Marca y categoría con nombre único.
+        esperado: Ya no aparece en /activas; el producto nuevo responde 400 en marcaId/categoriaId; el existente se edita (200).
+      - nivel: e2e
+        pasos:
+          - Como administrador, crear una marca y abrir el selector de marca de un producto nuevo.
+          - Desactivarla y volver a abrir el selector.
+        datos: Marca "E2E <herramienta> Marca <sello>".
+        esperado: La marca aparece en el selector mientras está activa y desaparece al desactivarla.
 
   # ------------------------------------------------------------------ RF-SEG-001 Usuarios, roles y sesión
   - id: CA-RF-SEG-001-1
@@ -243,18 +288,18 @@ criterios:
     requisito: RF-SEG-001
     descripcion: Un usuario sin permiso no ejecuta la operación, ni por interfaz ni por API.
     niveles: [unitaria, integracion, e2e]
-    e2e: [E2E-08]
+    e2e: [E2E-08, E2E-12]
     casos:
       - nivel: unitaria
         pasos:
-          - Renderizar ProtectedRoute y ProductosPage con un usuario sin el permiso.
-        datos: Usuario sin CATALOGO_EDITAR o sin la ruta permitida.
-        esperado: No se muestra la acción ni la página; se redirige.
+          - Renderizar ProtectedRoute, ProductosPage y CatalogosPage con un usuario sin el permiso.
+        datos: Usuario sin CATALOGO_EDITAR o sin CONFIG_GESTIONAR.
+        esperado: No se muestra la acción, la entrada del menú ni la página; se redirige o se avisa acceso denegado.
       - nivel: integracion
         pasos:
           - Recorrer cada endpoint de /api con el token de cada uno de los 6 roles (MatrizPermisosIntegracionTests).
           - Comprobar en la base que una operación denegada no deja rastro.
-        datos: 20 endpoints × 6 roles con cuerpos válidos; productos y usuarios creados para cada caso.
+        datos: 28 endpoints × 6 roles con cuerpos válidos; productos, usuarios, marcas y categorías creados para cada caso.
         esperado: 2xx si la matriz 2.2 da el permiso; si no, 403 ACCESO_DENEGADO sin registro de auditoría.
       - nivel: e2e
         pasos:
@@ -262,6 +307,12 @@ criterios:
           - Llamar a la API de crear y desactivar con su token.
         datos: Usuario vendedor.
         esperado: Sin botones de crear, editar ni desactivar; la API responde 403.
+      - nivel: e2e
+        pasos:
+          - Entrar como vendedor; revisar el menú y abrir /catalogos directamente.
+          - Llamar a la API de crear y desactivar marcas con su token.
+        datos: Usuario vendedor.
+        esperado: No ve la entrada Catálogos; la ruta muestra acceso denegado; la API responde 403.
 
   - id: CA-RF-SEG-001-3
     requisito: RF-SEG-001

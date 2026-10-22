@@ -66,6 +66,9 @@ class MatrizPermisosIntegracionTests extends PruebaIntegracionApi {
 	/** Matriz 2.2, fila "Usuarios, roles y configuración". */
 	private static final Set<String> USUARIOS = Set.of("admin");
 
+	/** Matriz 2.2, fila "Usuarios, roles y configuración" (catálogos de RF-CFG-001: CONFIG_GESTIONAR). */
+	private static final Set<String> CONFIGURACION = Set.of("admin");
+
 	/** Única ruta de la API que no exige token (RNF-SEG-001). */
 	private static final String LOGIN = "POST /api/v1/auth/login";
 
@@ -84,6 +87,10 @@ class MatrizPermisosIntegracionTests extends PruebaIntegracionApi {
 		PRODUCTO,
 		/** Un usuario nuevo con rol VENDEDOR creado para el caso. */
 		USUARIO,
+		/** Una marca nueva creada para el caso. */
+		MARCA,
+		/** Una categoría nueva creada para el caso. */
+		CATEGORIA,
 		/** El último registro de auditoría. */
 		AUDITORIA
 	}
@@ -96,8 +103,16 @@ class MatrizPermisosIntegracionTests extends PruebaIntegracionApi {
 		PRODUCTOS_CREAR(HttpMethod.POST, "/api/v1/productos", CATALOGO_EDITAR, Objetivo.NINGUNO),
 		PRODUCTOS_EDITAR(HttpMethod.PUT, "/api/v1/productos/{id}", CATALOGO_EDITAR, Objetivo.PRODUCTO),
 		PRODUCTOS_INACTIVAR(HttpMethod.DELETE, "/api/v1/productos/{id}", CATALOGO_EDITAR, Objetivo.PRODUCTO),
-		MARCAS(HttpMethod.GET, "/api/v1/marcas", TODOS, Objetivo.NINGUNO),
-		CATEGORIAS(HttpMethod.GET, "/api/v1/categorias", TODOS, Objetivo.NINGUNO),
+		MARCAS_LISTAR(HttpMethod.GET, "/api/v1/marcas", TODOS, Objetivo.NINGUNO),
+		MARCAS_ACTIVAS(HttpMethod.GET, "/api/v1/marcas/activas", TODOS, Objetivo.NINGUNO),
+		MARCAS_CREAR(HttpMethod.POST, "/api/v1/marcas", CONFIGURACION, Objetivo.NINGUNO),
+		MARCAS_EDITAR(HttpMethod.PUT, "/api/v1/marcas/{id}", CONFIGURACION, Objetivo.MARCA),
+		MARCAS_ESTADO(HttpMethod.PATCH, "/api/v1/marcas/{id}/estado", CONFIGURACION, Objetivo.MARCA),
+		CATEGORIAS_LISTAR(HttpMethod.GET, "/api/v1/categorias", TODOS, Objetivo.NINGUNO),
+		CATEGORIAS_ACTIVAS(HttpMethod.GET, "/api/v1/categorias/activas", TODOS, Objetivo.NINGUNO),
+		CATEGORIAS_CREAR(HttpMethod.POST, "/api/v1/categorias", CONFIGURACION, Objetivo.NINGUNO),
+		CATEGORIAS_EDITAR(HttpMethod.PUT, "/api/v1/categorias/{id}", CONFIGURACION, Objetivo.CATEGORIA),
+		CATEGORIAS_ESTADO(HttpMethod.PATCH, "/api/v1/categorias/{id}/estado", CONFIGURACION, Objetivo.CATEGORIA),
 		UNIDADES_MEDIDA(HttpMethod.GET, "/api/v1/unidades-medida", TODOS, Objetivo.NINGUNO),
 		TARIFAS_IVA(HttpMethod.GET, "/api/v1/tarifas-iva", TODOS, Objetivo.NINGUNO),
 		AUDITORIA_LISTAR(HttpMethod.GET, "/api/v1/auditoria", AUDITORIA, Objetivo.NINGUNO),
@@ -146,6 +161,9 @@ class MatrizPermisosIntegracionTests extends PruebaIntegracionApi {
 						{"nombreCompleto":"Matriz editado","correo":"e%s@ferreteria.test"}""".formatted(unico);
 				case USUARIOS_ROLES -> "{\"roles\":[\"COMPRADOR\"]}";
 				case USUARIOS_ESTADO -> "{\"activo\":false}";
+				case MARCAS_CREAR, CATEGORIAS_CREAR -> "{\"nombre\":\"Matriz %s\"}".formatted(unico);
+				case MARCAS_EDITAR, CATEGORIAS_EDITAR -> "{\"nombre\":\"Matriz editada %s\"}".formatted(unico);
+				case MARCAS_ESTADO, CATEGORIAS_ESTADO -> "{\"estado\":\"INACTIVO\"}";
 				case USUARIOS_CONTRASENA -> "{\"contrasena\":\"Nueva12345\"}";
 				default -> null;
 			};
@@ -242,6 +260,10 @@ class MatrizPermisosIntegracionTests extends PruebaIntegracionApi {
 						nuevo);
 				yield nuevo;
 			}
+			case MARCA -> jdbc.queryForObject("INSERT INTO marca (nombre) VALUES (?) RETURNING id", Long.class,
+					"Objetivo matriz " + unico);
+			case CATEGORIA -> jdbc.queryForObject("INSERT INTO categoria (nombre) VALUES (?) RETURNING id", Long.class,
+					"Objetivo matriz " + unico);
 			case AUDITORIA -> ultimoIdAuditoria();
 		};
 		return id == null ? 0 : id;
