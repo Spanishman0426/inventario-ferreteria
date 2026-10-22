@@ -2,7 +2,8 @@
   Nombre: ci-cd.md
   Descripción: Documentación del pipeline de integración continua en GitHub Actions (.github/workflows/ci.yml):
                jobs (backend, frontend, e2e, carga de humo, criterios), detección de cambios, artefactos,
-               cumplimiento de criterios, issues de fallas, aviso por webhook, configuración manual y cómo probarlo.
+               cumplimiento de criterios, issues de fallas, aviso por webhook, configuración manual y cómo probarlo;
+               y de los reportes de seguimiento (.github/workflows/reportes.yml): pendientes y cambios por integrante.
   Fecha de creación: 2026-10-21
   Última actualización: 2026-10-21
   Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
@@ -193,6 +194,7 @@ CA-RNF-REN-003-1 exige 50 usuarios (modo carga, que se ejecuta a mano: ver
 | `resumen-k6` | carga-humo | `k6-resumen-humo.json` | 14 días |
 | `logs-entorno-carga` | carga-humo | Logs de los contenedores | 14 días |
 | `criterios` | criterios | `criterios.json`, `criterios.md`, `criterios-resumen.md` | 30 días |
+| `reportes-seguimiento` | reportes (workflow `reportes.yml`) | `pendientes.md/.json` y `cambios.md/.json` (sección 14) | 90 días |
 
 ## 9. Issues de fallas y aviso por webhook
 
@@ -244,6 +246,8 @@ Cómo guardarla: *Settings → Secrets and variables → Actions → New reposit
 - Permiso por defecto del `GITHUB_TOKEN`: `contents: read`. `cambios` agrega `issues: read`; `criterios` agrega
   `actions: read` (artefacto de main) y `pull-requests: write` (comentario); `reportar-fallas` y `cerrar-fallas`
   agregan `issues: write`. Ningún job tiene más permisos.
+- El workflow `reportes.yml` (sección 14) pide `contents: read`, `actions: read` (artefacto `criterios` de main) e
+  `issues: write` (leer issues y actualizar el issue "Reporte semanal"); no usa secretos.
 - El secreto `NOTIFICACION_WEBHOOK` solo se expone al job `reportar-fallas`.
 - Un push nuevo a la misma rama cancela la ejecución anterior, salvo en `main`.
 - `reportar-fallas` y `cerrar-fallas` de una misma rama se turnan (grupo de concurrencia `ci-issue-<rama>`) para que
@@ -317,3 +321,54 @@ Para validar la sintaxis del workflow (incluye shellcheck de los pasos `run`) co
 ```powershell
 docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:latest -no-color
 ```
+
+## 14. Reportes de seguimiento
+
+El workflow [`.github/workflows/reportes.yml`](../.github/workflows/reportes.yml) corre **cada lunes a las 7:00
+(hora de Colombia)** y a mano desde *Actions → Reportes → Run workflow*, donde se puede indicar un rango `desde` /
+`hasta` (AAAA-MM-DD) para el reporte de cambios. Genera dos reportes en Markdown y:
+
+1. los publica en el **Job Summary** de la ejecución;
+2. los guarda en el artefacto **`reportes-seguimiento`** (90 días), junto con su versión JSON;
+3. reescribe el issue fijo **"Reporte semanal"** (etiqueta `reporte-semanal`, marca oculta
+   `<!-- reporte-semanal -->`). Si el issue no existe lo crea, si estaba cerrado lo reabre e intenta fijarlo en la
+   pestaña Issues (si el token no puede, se fija a mano una vez). El cuerpo se reemplaza en cada ejecución; los
+   reportes anteriores quedan en los artefactos. Si supera el límite de GitHub, se recorta y remite al artefacto.
+
+| Script | Contenido |
+| --- | --- |
+| [`scripts/reporte-pendientes.mjs`](../scripts/reporte-pendientes.mjs) | **Issues abiertos** (sin pull requests ni el propio "Reporte semanal") agrupados por etiqueta, responsable y antigüedad (< 7, 7–30, 31–90 y > 90 días), con la lista completa. **Criterios en FALLA o SIN PRUEBA** según el último `criterios.json` (en CI, el artefacto `criterios` de la última ejecución de `ci.yml` en `main`). **Marcas TODO y FIXME** en comentarios de los archivos de código versionados, con archivo y línea. |
+| [`scripts/reporte-cambios.mjs`](../scripts/reporte-cambios.mjs) | Desde `git log`, para el rango (por defecto los últimos 7 días, hoy incluido) y para el total del proyecto, por integrante: commits, archivos distintos, líneas agregadas y eliminadas, desglose por área y cambios por tipo. En el rango lista cada commit agrupado por tipo; en el total solo los conteos (la lista completa está en `cambios.json`). |
+
+**Áreas** por ruta: `backend/` → backend, `frontend/` → frontend, `e2e/` → e2e, `load-tests/` → carga,
+`.github/`, `scripts/`, `docker-compose*` y `render.yaml` → ci, `docs/` y archivos `.md` → docs, el resto
+(`database/`, `.gitignore`, `.mailmap`…) → otros. **Tipos** según el asunto `tipo(alcance): descripción`: feat,
+fix, test, docs, ci, refactor; lo que no sigue el formato cuenta como otros. Los commits de **merge** no se suman
+(son la fusión de un pull request, no trabajo nuevo); el reporte indica cuántos hubo.
+
+**Identidades.** El archivo [`.mailmap`](../.mailmap) une los correos de un mismo integrante bajo un nombre y
+correo principal; lo respetan `git shortlog`, `git log --use-mailmap` y el reporte de cambios. Para agregar otra
+identidad, se añade una línea `Nombre principal <correo principal> <correo alterno>` y se comprueba con
+`git shortlog -sne --all` (debe salir una sola línea por integrante).
+
+### Ejecutarlos en local
+
+```powershell
+cd scripts; npm ci; cd ..
+
+# Pendientes: la sección de criterios usa reportes/criterios/criterios.json (generarlo antes o pasar otro con
+# --criterios); la de issues necesita un token de GitHub (GITHUB_TOKEN, GH_TOKEN o la sesión de "gh auth login").
+node scripts/criterios.mjs
+$env:GH_TOKEN = (gh auth token)
+node scripts/reporte-pendientes.mjs
+node scripts/reporte-pendientes.mjs --criterios ruta/a/criterios.json --repo dueño/repositorio
+
+# Cambios: última semana y total, o un rango
+node scripts/reporte-cambios.mjs
+node scripts/reporte-cambios.mjs --desde 2026-10-01 --hasta 2026-10-21
+```
+
+Ambos escriben en `reportes/seguimiento/` (ignorada por Git): `pendientes.md`, `pendientes.json`, `cambios.md` y
+`cambios.json`. Sin token o sin red, la sección de issues aparece como "no disponible" y el resto del reporte se
+genera igual. También funcionan con `npm run pendientes` y `npm run cambios` desde `scripts/` (con las mismas
+opciones después de `--`).

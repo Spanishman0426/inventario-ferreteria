@@ -1,0 +1,8 @@
+# Nombre: .mailmap
+# Descripción: Unifica las identidades de Git de un mismo integrante para git shortlog, git log --use-mailmap
+#              y scripts/reporte-cambios.mjs. Formato: "Nombre principal <correo principal> <correo alterno>".
+# Fecha de creación: 2026-10-21
+# Última actualización: 2026-10-21
+# Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
+
+Spanishman0426 <liviustd@gmail.com> <u20212200826@usco.edu.co>
