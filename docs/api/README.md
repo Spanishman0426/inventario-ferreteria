@@ -1,9 +1,9 @@
 <!--
   Nombre: README.md
-  Descripción: Guía de la API REST con ejemplos JSON de petición y respuesta del catálogo de productos y de
-               la administración de marcas y categorías.
+  Descripción: Guía de la API REST con ejemplos JSON de petición y respuesta del catálogo de productos, de
+               la administración de marcas y categorías y de clientes y proveedores.
   Fecha de creación: 2026-10-20
-  Última actualización: 2026-10-21
+  Última actualización: 2026-10-22
   Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
 -->
 
@@ -191,6 +191,68 @@ Content-Type: application/json
 
 { "estado": "INACTIVO" }
 ```
+
+## Clientes y proveedores — `/api/v1/terceros` (RF-TER-001, RN-26)
+
+Todas las operaciones exigen `TERCERO_CLIENTE_EDITAR` o `TERCERO_PROVEEDOR_EDITAR`. Además, crear o editar
+un tercero cliente exige `TERCERO_CLIENTE_EDITAR` y uno proveedor `TERCERO_PROVEEDOR_EDITAR` (los dos si es
+ambos). Al editar o desactivar se miran los roles que el tercero tiene y los que tendrá: un vendedor no
+edita un proveedor. Sin el permiso de un rol: 403 `ACCESO_DENEGADO`. No hay DELETE (405).
+
+| Operación | Respuestas |
+| --- | --- |
+| `GET /api/v1/terceros?q=&rol=&tipoPersona=&estado=&page=&size=&sort=` | 200 página de terceros, 400, 401, 403 |
+| `GET /api/v1/terceros/{id}` | 200, 401, 403, 404 |
+| `POST /api/v1/terceros` | 201 + `Location`, 400, 401, 403, 409 |
+| `PUT /api/v1/terceros/{id}` | 200, 400, 401, 403, 404, 409, 422 |
+| `PATCH /api/v1/terceros/{id}/estado` | 200, 400, 401, 403, 404, 422 |
+
+- Persona `NATURAL`: `CC` o `NIT`, `nombre` y `apellido` obligatorios. Persona `JURIDICA`: solo `NIT` y
+  `razonSocial` obligatoria. Los campos que no aplican al tipo se descartan.
+- `numeroIdentificacion`: 5 a 15 dígitos sin separadores; único por tipo de identificación (409).
+- `digitoVerificacion`: obligatorio con NIT y debe coincidir con el algoritmo de la DIAN (`fn_dv_nit`);
+  si no coincide, 400 en ese campo con el dígito correcto. Con CC no se admite.
+- `direccion` y `telefono` (7 a 10 dígitos) obligatorios; `correo` opcional con formato válido.
+- `esCliente` / `esProveedor`: al menos uno verdadero; un tercero puede ser ambos.
+- `q` busca en el nombre o la razón social (sin distinguir mayúsculas) y al inicio de la identificación;
+  `rol` es `CLIENTE` o `PROVEEDOR`; `sort` admite `nombre` (por defecto), `numeroIdentificacion`,
+  `creadoEn` e `id`.
+- El Consumidor final (CC 222222222222, `esConsumidorFinal: true`) aparece en la búsqueda, pero PUT y PATCH
+  responden 422 `REGLA_NEGOCIO`: «El Consumidor final viene predefinido y no se puede editar ni desactivar».
+
+```http
+POST /api/v1/terceros
+Authorization: Bearer eyJ...
+Content-Type: application/json
+
+{
+  "tipoPersona": "JURIDICA",
+  "tipoIdentificacion": "NIT",
+  "numeroIdentificacion": "890903938",
+  "digitoVerificacion": 8,
+  "razonSocial": "Bancolombia S.A.",
+  "direccion": "Carrera 48 # 26-85, Medellín",
+  "telefono": "6045101000",
+  "correo": "proveedores@banco.test",
+  "esCliente": true,
+  "esProveedor": true
+}
+```
+
+Respuesta `201 Created` con `Location: /api/v1/terceros/7`:
+
+```json
+{
+  "id": 7, "tipoPersona": "JURIDICA", "tipoIdentificacion": "NIT", "numeroIdentificacion": "890903938",
+  "digitoVerificacion": 8, "nombre": null, "apellido": null, "razonSocial": "Bancolombia S.A.",
+  "nombreMostrado": "Bancolombia S.A.", "direccion": "Carrera 48 # 26-85, Medellín", "telefono": "6045101000",
+  "correo": "proveedores@banco.test", "esCliente": true, "esProveedor": true, "esConsumidorFinal": false,
+  "estado": "ACTIVO", "creadoEn": "2026-10-22T15:00:00Z"
+}
+```
+
+Un dígito incorrecto (`"digitoVerificacion": 3`) responde `400 VALIDACION` con
+`"errores": [{ "campo": "digitoVerificacion", "mensaje": "no corresponde al NIT; el dígito correcto es 8" }]`.
 
 ## Catálogos de referencia (selectores)
 
