@@ -1,7 +1,8 @@
 /**
  * Nombre: ProductoFormDialog.jsx
  * Descripción: Diálogo con el formulario para crear o editar un producto (RF-PRO-001). Valida con
- *              productoSchema (RNF-INT-002), llena los selectores desde los endpoints de catálogo y
+ *              productoSchema (RNF-INT-002), llena los selectores con los elementos activos de cada
+ *              catálogo (al editar agrega, marcada como inactiva, la opción que el producto ya tiene) y
  *              muestra los errores del servidor en el campo que corresponde.
  * Fecha de creación: 2026-10-21
  * Última actualización: 2026-10-21
@@ -41,18 +42,19 @@ import { literal, traducirError } from '../../validation/traducirError.js';
 const SIN_CATALOGOS = { categorias: [], marcas: [], unidades: [], tarifas: [] };
 
 /**
- * Agrega a la lista la opción actual del producto si no está (por ejemplo, una marca ya inactiva),
- * para que el selector pueda mostrarla al editar.
+ * Al editar, agrega a la lista la opción actual del producto si no está entre las activas (por
+ * ejemplo, una marca desactivada después), marcada con `inactiva: true`, para que el producto la
+ * conserve (RF-CFG-001). Al crear no hay opción actual y solo se ofrecen las activas.
  *
  * @template T
  * @param {T[]} opciones opciones activas del catálogo
  * @param {T|undefined|null} actual opción que tiene el producto
  * @param {(opcion: T) => unknown} clave obtiene el identificador de una opción
- * @returns {T[]} opciones con la actual incluida
+ * @returns {(T & {inactiva?: boolean})[]} opciones con la actual incluida
  */
 function incluirActual(opciones, actual, clave) {
   if (!actual || opciones.some((o) => clave(o) === clave(actual))) return opciones;
-  return [...opciones, actual];
+  return [...opciones, { ...actual, inactiva: true }];
 }
 
 /**
@@ -71,6 +73,15 @@ export default function ProductoFormDialog({ abierto, producto = null, onCerrar,
   const [catalogos, setCatalogos] = useState(SIN_CATALOGOS);
   const [cargando, setCargando] = useState(true);
   const editando = producto !== null;
+
+  /**
+   * Texto de una opción de categoría, marca o tarifa: su nombre, con la marca de inactiva si aplica.
+   *
+   * @param {{nombre: string, inactiva?: boolean}} opcion opción del selector
+   * @returns {string} texto visible
+   */
+  const textoOpcion = (opcion) =>
+    opcion.inactiva ? t('formulario.opcionInactiva', { nombre: opcion.nombre }) : opcion.nombre;
 
   useEffect(() => {
     if (!abierto) return undefined;
@@ -219,7 +230,7 @@ export default function ProductoFormDialog({ abierto, producto = null, onCerrar,
             >
               {catalogos.categorias.map((c) => (
                 <MenuItem key={c.id} value={c.id}>
-                  {c.nombre}
+                  {textoOpcion(c)}
                 </MenuItem>
               ))}
             </TextField>
@@ -231,7 +242,7 @@ export default function ProductoFormDialog({ abierto, producto = null, onCerrar,
             >
               {catalogos.marcas.map((m) => (
                 <MenuItem key={m.id} value={m.id}>
-                  {m.nombre}
+                  {textoOpcion(m)}
                 </MenuItem>
               ))}
             </TextField>
@@ -255,7 +266,7 @@ export default function ProductoFormDialog({ abierto, producto = null, onCerrar,
             >
               {catalogos.tarifas.map((ti) => (
                 <MenuItem key={ti.id} value={ti.id}>
-                  {ti.nombre}
+                  {textoOpcion(ti)}
                 </MenuItem>
               ))}
             </TextField>

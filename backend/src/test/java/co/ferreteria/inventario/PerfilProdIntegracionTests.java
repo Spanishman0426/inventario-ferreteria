@@ -1,6 +1,6 @@
 /**
  * Nombre: PerfilProdIntegracionTests.java
- * Descripción: Prueba de integración del perfil prod (Render + Neon): Flyway solo aplica V1 a V3, se crea el
+ * Descripción: Prueba de integración del perfil prod (Render + Neon): Flyway solo aplica V1 a V4, se crea el
  *              administrador inicial desde variables de entorno, HSTS detrás del proxy TLS y actuator público.
  * Fecha de creación: 2026-10-21
  * Última actualización: 2026-10-21
@@ -65,12 +65,12 @@ class PerfilProdIntegracionTests {
 	private InicializadorAdministrador inicializador;
 
 	@Test
-	@DisplayName("Perfil prod: Flyway aplica solo V1, V2 y V3, sin datos de prueba, e2e ni dev")
+	@DisplayName("Perfil prod: Flyway aplica solo V1 a V4, sin datos de prueba, e2e ni dev")
 	void flywaySoloAplicaLasMigracionesDelEsquema() {
 		List<String> versiones = jdbc.queryForList(
 				"SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL ORDER BY installed_rank",
 				String.class);
-		assertThat(versiones).containsExactly("1", "2", "3");
+		assertThat(versiones).containsExactly("1", "2", "3", "4");
 
 		// Los datos de dev y e2e son scripts repetibles (R__) sin versión; los de prueba son V100
 		Integer repetibles = jdbc.queryForObject(

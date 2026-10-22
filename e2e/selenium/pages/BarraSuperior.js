@@ -12,6 +12,8 @@ import { clic, esperarAusente, porTestId } from '../support/esperas.js';
 export const BARRA = {
   usuarioActual: porTestId('usuario-actual'),
   menuProductos: porTestId('menu-productos'),
+  /** Entrada del menú que solo ve quien tiene CONFIG_GESTIONAR. */
+  menuCatalogos: porTestId('menu-catalogos'),
   selectorIdioma: porTestId('idioma-selector'),
   salir: porTestId('sesion-salir'),
   confirmarSalir: porTestId('sesion-salir-confirmacion-aceptar'),

@@ -1,8 +1,9 @@
 /**
  * Nombre: ProductoFormDialog.test.jsx
  * Descripción: Pruebas del formulario de producto: campo de garantía condicional, mensajes por
- *              campo, envío al crear y editar, y errores del servidor (409 bajo el nombre, 400 por
- *              campo, otros como notificación) (RF-PRO-001, RNF-INT-002).
+ *              campo, envío al crear y editar, opciones inactivas marcadas solo al editar, y errores
+ *              del servidor (409 bajo el nombre, 400 por campo, otros como notificación)
+ *              (RF-PRO-001, RF-CFG-001, RNF-INT-002).
  * Fecha de creación: 2026-10-21
  * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
@@ -234,6 +235,36 @@ describe('ProductoFormDialog', () => {
       estado: 'ACTIVO',
     });
     expect(crearProducto).not.toHaveBeenCalled();
+  });
+
+  it('[CA-RF-CFG-001-D1] al editar, la marca y la categoría inactivas del producto aparecen marcadas como inactivas', async () => {
+    const { usuario } = montar({
+      producto: { ...BOMBILLO, categoria: { id: 8, nombre: 'Antigua' } },
+    });
+
+    expect(await screen.findByTestId('producto-campo-marca')).toHaveTextContent(
+      'Philips (inactiva)',
+    );
+    await usuario.click(screen.getByTestId('producto-campo-categoria'));
+    const lista = await screen.findByRole('listbox');
+    expect(
+      within(lista)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Herramientas', 'Eléctricos', 'Antigua (inactiva)']);
+  });
+
+  it('[CA-RF-CFG-001-D1] al crear, los selectores ofrecen solo las marcas activas', async () => {
+    const { usuario } = montar();
+
+    await usuario.click(screen.getByTestId('producto-campo-marca'));
+    const lista = await screen.findByRole('listbox');
+
+    expect(
+      within(lista)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Stanley']);
   });
 
   it('[CA-RF-PRO-001-3] un 409 por duplicado muestra la causa bajo el nombre', async () => {

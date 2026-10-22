@@ -1,7 +1,7 @@
 /**
  * Nombre: AppLayout.jsx
- * Descripción: Estructura de las páginas autenticadas: barra superior con navegación, usuario,
- *              selector de idioma y cierre de sesión; el contenido de la ruta va debajo.
+ * Descripción: Estructura de las páginas autenticadas: barra superior con navegación según permisos,
+ *              usuario, selector de idioma y cierre de sesión; el contenido de la ruta va debajo.
  * Fecha de creación: 2026-10-21
  * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
@@ -25,13 +25,24 @@ import ConfirmDialog from './ConfirmDialog.jsx';
 import LanguageSelector from './LanguageSelector.jsx';
 
 /**
+ * Entradas del menú principal con el permiso que exige cada una (matriz 2.2). Solo se muestran las
+ * que el usuario puede abrir.
+ *
+ * @type {{ruta: string, clave: string, permiso: string}[]}
+ */
+const MENU = [
+  { ruta: '/productos', clave: 'productos', permiso: 'CATALOGO_CONSULTAR' },
+  { ruta: '/catalogos', clave: 'catalogos', permiso: 'CONFIG_GESTIONAR' },
+];
+
+/**
  * Plantilla de las páginas con sesión.
  *
  * @returns {import('react').JSX.Element} barra superior y contenido de la ruta
  */
 export default function AppLayout() {
   const { t } = useTranslation();
-  const { usuario, logout } = useAuth();
+  const { usuario, logout, tienePermiso } = useAuth();
   const navegar = useNavigate();
   const [confirmarSalida, setConfirmarSalida] = useState(false);
 
@@ -51,14 +62,17 @@ export default function AppLayout() {
             {t('app.titulo')}
           </Typography>
           <Box component="nav" aria-label={t('menu.navegacion')} sx={{ flexGrow: 1 }}>
-            <Button
-              color="inherit"
-              component={NavLink}
-              to="/productos"
-              data-testid="menu-productos"
-            >
-              {t('menu.productos')}
-            </Button>
+            {MENU.filter((entrada) => tienePermiso(entrada.permiso)).map((entrada) => (
+              <Button
+                key={entrada.ruta}
+                color="inherit"
+                component={NavLink}
+                to={entrada.ruta}
+                data-testid={`menu-${entrada.clave}`}
+              >
+                {t(`menu.${entrada.clave}`)}
+              </Button>
+            ))}
           </Box>
           <Typography
             variant="body2"

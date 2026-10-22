@@ -1,7 +1,8 @@
 /**
  * Nombre: api.js
  * Descripción: Cliente mínimo de la API REST para preparar datos de las pruebas E2E (iniciar sesión,
- *              crear e inactivar productos) sin pasar por la interfaz. Usa fetch de Node.
+ *              crear e inactivar productos, buscar catálogos activos) sin pasar por la interfaz.
+ *              Usa fetch de Node.
  * Fecha de creación: 2026-10-21
  * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
@@ -68,19 +69,26 @@ export async function estadoDe(ruta, { method = 'GET', token, body } = {}) {
   return respuesta.status;
 }
 
+/** Lista de activos de cada catálogo: marcas y categorías usan /activas (RF-CFG-001). */
+const LISTA_ACTIVOS = {
+  marcas: '/api/v1/marcas/activas',
+  categorias: '/api/v1/categorias/activas',
+  'tarifas-iva': '/api/v1/tarifas-iva',
+};
+
 /**
- * Busca el id de un elemento de catálogo por su nombre exacto.
+ * Busca el id de un elemento activo de catálogo por su nombre exacto.
  *
  * @param {string} token token JWT
- * @param {'marcas'|'categorias'|'tarifas-iva'} catalogo ruta del catálogo
+ * @param {'marcas'|'categorias'|'tarifas-iva'} catalogo catálogo
  * @param {string} nombre nombre visible
  * @returns {Promise<number>} id
  */
 export async function idDeCatalogo(token, catalogo, nombre) {
-  const lista = await pedir(`/api/v1/${catalogo}`, { token });
+  const lista = await pedir(LISTA_ACTIVOS[catalogo], { token });
   const elemento = lista.find((e) => e.nombre === nombre);
   if (!elemento) {
-    throw new Error(`No existe "${nombre}" en /api/v1/${catalogo}`);
+    throw new Error(`No existe "${nombre}" activo en ${LISTA_ACTIVOS[catalogo]}`);
   }
   return elemento.id;
 }

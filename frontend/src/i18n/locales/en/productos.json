@@ -36,7 +36,8 @@
     "tarifaIvaId": "VAT rate",
     "porcentajeIncremento": "Markup percentage",
     "control": "Control type",
-    "plazoGarantiaMeses": "Warranty period (months)"
+    "plazoGarantiaMeses": "Warranty period (months)",
+    "opcionInactiva": "{{nombre}} (inactive)"
   },
   "control": {
     "NINGUNO": "None",

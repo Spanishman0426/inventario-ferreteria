@@ -1,8 +1,8 @@
 /**
  * Nombre: MarcaRepository.java
- * Descripción: Repositorio de solo lectura de la tabla marca.
+ * Descripción: Repositorio de la tabla marca: búsqueda paginada, activos para selectores y verificación de duplicados.
  * Fecha de creación: 2026-10-20
- * Última actualización: 2026-10-20
+ * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 package co.ferreteria.inventario.catalogo;
@@ -10,16 +10,18 @@ package co.ferreteria.inventario.catalogo;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 /**
- * Consulta de la tabla {@code marca} para selectores y validación de productos (RF-PRO-001).
+ * Acceso a la tabla {@code marca} (RF-PRO-001, RF-CFG-001).
  */
-public interface MarcaRepository extends JpaRepository<Marca, Long> {
+public interface MarcaRepository extends ElementoCatalogoRepository<Marca>, JpaRepository<Marca, Long>,
+		JpaSpecificationExecutor<Marca> {
 
 	/**
-	 * Marcas activas ordenadas por nombre.
+	 * Elementos activos ordenados por nombre, para los selectores.
 	 *
-	 * @return marcas activas
+	 * @return elementos activos
 	 */
 	List<Marca> findByActivoTrueOrderByNombreAsc();
 

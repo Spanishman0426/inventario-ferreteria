@@ -1,7 +1,8 @@
 /**
  * Nombre: datos.js
  * Descripción: Datos de las pruebas E2E: catálogos de database/02_datos_prueba.sql, textos esperados en
- *              cada idioma y nombres únicos para que las pruebas puedan repetirse sobre la misma base.
+ *              cada idioma y nombres únicos (productos y marcas) para que las pruebas puedan repetirse
+ *              sobre la misma base.
  * Fecha de creación: 2026-10-21
  * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
@@ -94,6 +95,26 @@ export const TEXTOS = {
      * @returns {string} mensaje esperado
      */
     desactivado: (nombre) => `Producto «${nombre}» desactivado.`,
+    /** Textos de la administración de catálogos (frontend/src/i18n/locales/es/catalogos.json). */
+    catalogos: {
+      titulo: 'Catálogos',
+      menu: 'Catálogos',
+      desactivarTitulo: '¿Desactivar la marca?',
+      /**
+       * Notificación tras registrar una marca.
+       *
+       * @param {string} nombre nombre de la marca
+       * @returns {string} mensaje esperado
+       */
+      marcaCreada: (nombre) => `Marca «${nombre}» registrada.`,
+      /**
+       * Notificación tras desactivar una marca.
+       *
+       * @param {string} nombre nombre de la marca
+       * @returns {string} mensaje esperado
+       */
+      marcaDesactivada: (nombre) => `Marca «${nombre}» desactivada.`,
+    },
   },
   en: {
     loginTitulo: 'Sign in',
@@ -118,6 +139,19 @@ export const LIMITES = { nombreMax: 150, descripcionMax: 500 };
 export function nombreUnico(herramienta, descripcion) {
   const sello = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   return `E2E ${herramienta} ${descripcion} ${sello}`.slice(0, LIMITES.nombreMax);
+}
+
+/** Longitud máxima del nombre de una marca o categoría (ElementoCatalogoPeticion). */
+export const NOMBRE_CATALOGO_MAX = 100;
+
+/**
+ * Genera un nombre de marca o categoría único por ejecución (no se borran: solo se desactivan).
+ *
+ * @param {string} herramienta prefijo de la herramienta: PW (Playwright) o SE (Selenium)
+ * @returns {string} nombre de hasta 100 caracteres
+ */
+export function nombreMarcaUnico(herramienta) {
+  return nombreUnico(herramienta, 'Marca').slice(0, NOMBRE_CATALOGO_MAX);
 }
 
 /**

@@ -2,7 +2,7 @@
  * Nombre: ProductoPeticion.java
  * Descripción: Datos para crear o editar un producto (POST y PUT /api/v1/productos).
  * Fecha de creación: 2026-10-20
- * Última actualización: 2026-10-20
+ * Última actualización: 2026-10-21
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 package co.ferreteria.inventario.catalogo.dto;
@@ -52,12 +52,12 @@ public record ProductoPeticion(
 		@Size(max = 500)
 		String descripcion,
 
-		@Schema(description = "Id de una categoría activa (GET /api/v1/categorias).", example = "1",
+		@Schema(description = "Id de una categoría activa (GET /api/v1/categorias/activas).", example = "1",
 				requiredMode = Schema.RequiredMode.REQUIRED)
 		@NotNull
 		Long categoriaId,
 
-		@Schema(description = "Id de una marca activa (GET /api/v1/marcas).", example = "1",
+		@Schema(description = "Id de una marca activa (GET /api/v1/marcas/activas).", example = "1",
 				requiredMode = Schema.RequiredMode.REQUIRED)
 		@NotNull
 		Long marcaId,

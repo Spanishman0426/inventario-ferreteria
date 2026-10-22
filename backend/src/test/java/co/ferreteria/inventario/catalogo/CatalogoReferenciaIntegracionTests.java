@@ -44,14 +44,14 @@ class CatalogoReferenciaIntegracionTests extends PruebaIntegracionApi {
 	}
 
 	@Test
-	@DisplayName("Marcas y categorías activas se listan ordenadas por nombre")
+	@DisplayName("[CA-RF-CFG-001-D1] Marcas y categorías activas (/activas) se listan ordenadas por nombre")
 	void marcasYCategorias() throws Exception {
 		String token = usuarios.bearer("comprador");
-		mvc.perform(get("/api/v1/marcas").header(HttpHeaders.AUTHORIZATION, token))
+		mvc.perform(get("/api/v1/marcas/activas").header(HttpHeaders.AUTHORIZATION, token))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$[0].nombre").value("Argos"))
 				.andExpect(jsonPath("$[*].nombre", hasItems("Stanley", "Pavco", "Sika")));
-		mvc.perform(get("/api/v1/categorias").header(HttpHeaders.AUTHORIZATION, token))
+		mvc.perform(get("/api/v1/categorias/activas").header(HttpHeaders.AUTHORIZATION, token))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$[0].nombre").value("Adhesivos y selladores"))
 				.andExpect(jsonPath("$[*].nombre", hasItems("Herramientas", "Plomería")));
@@ -60,7 +60,7 @@ class CatalogoReferenciaIntegracionTests extends PruebaIntegracionApi {
 	@Test
 	@DisplayName("[CA-RNF-SEG-001-1] Sin token, las listas responden 401")
 	void sinToken() throws Exception {
-		mvc.perform(get("/api/v1/marcas")).andExpect(status().isUnauthorized());
+		mvc.perform(get("/api/v1/marcas/activas")).andExpect(status().isUnauthorized());
 	}
 
 }

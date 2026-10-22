@@ -4,7 +4,7 @@
 #              cd backend && mvnw test -Dtest=ContratoOpenApiTests -Dopenapi.actualizar=true
 #              La prueba ContratoOpenApiTests falla si el código y este archivo dejan de coincidir.
 # Fecha de creación: 2026-10-20
-# Última actualización: 2026-10-20
+# Última actualización: 2026-10-21
 # Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
 openapi: 3.1.0
 info:
@@ -24,8 +24,12 @@ tags:
   name: Productos
 - description: Consulta de la auditoría de operaciones e inicios de sesión (RF-SEG-002)
   name: Auditoría
-- description: "Marcas, categorías, unidades y tarifas de IVA para selectores"
+- description: Administración del catálogo de marcas (RF-CFG-001)
+  name: Marcas
+- description: Unidades de medida y tarifas de IVA para selectores
   name: Catálogos de referencia
+- description: Administración del catálogo de categorías (RF-CFG-001)
+  name: Categorías
 paths:
   /api/v1/auditoria:
     get:
@@ -215,8 +219,119 @@ paths:
       - Autenticación
   /api/v1/categorias:
     get:
-      description: Ordenadas por nombre.
+      description: "Lista paginada con categorías activas e inactivas. `page` empieza\
+        \ en 0; `size` va de 1 a 100 (20 por defecto). `sort` admite `id` y `nombre`,\
+        \ con `,asc` o `,desc`; por defecto `nombre,asc`. Para los selectores use\
+        \ GET /api/v1/categorias/activas."
       operationId: listarCategorias
+      parameters:
+      - description: "Texto contenido en el nombre, sin distinguir mayúsculas."
+        example: herra
+        in: query
+        name: q
+        required: false
+        schema:
+          type: string
+          maxLength: 100
+          minLength: 0
+      - description: Estado de la categoría; sin valor devuelve todas.
+        in: query
+        name: estado
+        required: false
+        schema:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+      - description: Zero-based page index (0..N)
+        in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+      - description: The size of the page to be returned
+        in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          default: 20
+          minimum: 1
+      - description: "Sorting criteria in the format: property,(asc|desc). Default\
+          \ sort order is ascending. Multiple sort criteria are supported."
+        in: query
+        name: sort
+        required: false
+        schema:
+          type: array
+          default:
+          - "nombre,ASC"
+          items:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginaElementoCatalogo"
+          description: Página de categorías
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+      security:
+      - bearerAuth: []
+      summary: Buscar categorías
+      tags:
+      - Categorías
+    post:
+      description: El nombre se recorta y no se repite sin distinguir mayúsculas.
+        La categoría queda ACTIVA.
+      operationId: crearCategoria
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ElementoCatalogoPeticion"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ElementoCatalogo"
+          description: Creada
+          headers:
+            Location:
+              description: URL de la categoría creada
+              schema:
+                type: string
+                format: uri
+                example: /api/v1/categorias/10
+              style: simple
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "409":
+          $ref: "#/components/responses/Error409"
+      security:
+      - bearerAuth: []
+      summary: Registrar categoría
+      tags:
+      - Categorías
+  /api/v1/categorias/activas:
+    get:
+      description: "Lista completa, sin paginar, ordenada por nombre. Alimenta el\
+        \ selector de categoría de los productos nuevos; al editar, el producto conserva\
+        \ su categoría aunque esté inactiva."
+      operationId: listarCategoriasActivas
       responses:
         "200":
           content:
@@ -225,7 +340,7 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Referencia"
-          description: Lista
+          description: Categorías activas
         "401":
           $ref: "#/components/responses/Error401"
         "403":
@@ -234,11 +349,203 @@ paths:
       - bearerAuth: []
       summary: Listar categorías activas
       tags:
-      - Catálogos de referencia
+      - Categorías
+  /api/v1/categorias/{id}:
+    put:
+      description: "Cambia el nombre; el estado se cambia con PATCH /api/v1/categorias/{id}/estado."
+      operationId: actualizarCategoria
+      parameters:
+      - description: Id de la categoría.
+        example: 1
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ElementoCatalogoPeticion"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ElementoCatalogo"
+          description: Actualizada
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "409":
+          $ref: "#/components/responses/Error409"
+      security:
+      - bearerAuth: []
+      summary: Editar categoría
+      tags:
+      - Categorías
+  /api/v1/categorias/{id}/estado:
+    patch:
+      description: "Una categoría en uso no se elimina, solo se desactiva (RF-CFG-001):\
+        \ deja de ofrecerse a productos nuevos y los existentes la conservan. Es idempotente."
+      operationId: cambiarEstadoCategoria
+      parameters:
+      - description: Id de la categoría.
+        example: 1
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CambioEstadoCatalogo"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ElementoCatalogo"
+          description: Estado aplicado
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+      security:
+      - bearerAuth: []
+      summary: Activar o desactivar categoría
+      tags:
+      - Categorías
   /api/v1/marcas:
     get:
-      description: Ordenadas por nombre.
+      description: "Lista paginada con marcas activas e inactivas. `page` empieza\
+        \ en 0; `size` va de 1 a 100 (20 por defecto). `sort` admite `id` y `nombre`,\
+        \ con `,asc` o `,desc`; por defecto `nombre,asc`. Para los selectores use\
+        \ GET /api/v1/marcas/activas."
       operationId: listarMarcas
+      parameters:
+      - description: "Texto contenido en el nombre, sin distinguir mayúsculas."
+        example: stan
+        in: query
+        name: q
+        required: false
+        schema:
+          type: string
+          maxLength: 100
+          minLength: 0
+      - description: Estado de la marca; sin valor devuelve todas.
+        in: query
+        name: estado
+        required: false
+        schema:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+      - description: Zero-based page index (0..N)
+        in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+      - description: The size of the page to be returned
+        in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          default: 20
+          minimum: 1
+      - description: "Sorting criteria in the format: property,(asc|desc). Default\
+          \ sort order is ascending. Multiple sort criteria are supported."
+        in: query
+        name: sort
+        required: false
+        schema:
+          type: array
+          default:
+          - "nombre,ASC"
+          items:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginaElementoCatalogo"
+          description: Página de marcas
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+      security:
+      - bearerAuth: []
+      summary: Buscar marcas
+      tags:
+      - Marcas
+    post:
+      description: El nombre se recorta y no se repite sin distinguir mayúsculas.
+        La marca queda ACTIVA.
+      operationId: crearMarca
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ElementoCatalogoPeticion"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ElementoCatalogo"
+          description: Creada
+          headers:
+            Location:
+              description: URL de la marca creada
+              schema:
+                type: string
+                format: uri
+                example: /api/v1/marcas/10
+              style: simple
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "409":
+          $ref: "#/components/responses/Error409"
+      security:
+      - bearerAuth: []
+      summary: Registrar marca
+      tags:
+      - Marcas
+  /api/v1/marcas/activas:
+    get:
+      description: "Lista completa, sin paginar, ordenada por nombre. Alimenta el\
+        \ selector de marca de los productos nuevos; al editar, el producto conserva\
+        \ su marca aunque esté inactiva."
+      operationId: listarMarcasActivas
       responses:
         "200":
           content:
@@ -247,7 +554,7 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Referencia"
-          description: Lista
+          description: Marcas activas
         "401":
           $ref: "#/components/responses/Error401"
         "403":
@@ -256,7 +563,88 @@ paths:
       - bearerAuth: []
       summary: Listar marcas activas
       tags:
-      - Catálogos de referencia
+      - Marcas
+  /api/v1/marcas/{id}:
+    put:
+      description: "Cambia el nombre; el estado se cambia con PATCH /api/v1/marcas/{id}/estado."
+      operationId: actualizarMarca
+      parameters:
+      - description: Id de la marca.
+        example: 1
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ElementoCatalogoPeticion"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ElementoCatalogo"
+          description: Actualizada
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "409":
+          $ref: "#/components/responses/Error409"
+      security:
+      - bearerAuth: []
+      summary: Editar marca
+      tags:
+      - Marcas
+  /api/v1/marcas/{id}/estado:
+    patch:
+      description: "Una marca en uso no se elimina, solo se desactiva (RF-CFG-001):\
+        \ deja de ofrecerse a productos nuevos y los existentes la conservan. Es idempotente."
+      operationId: cambiarEstadoMarca
+      parameters:
+      - description: Id de la marca.
+        example: 1
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CambioEstadoCatalogo"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ElementoCatalogo"
+          description: Estado aplicado
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+      security:
+      - bearerAuth: []
+      summary: Activar o desactivar marca
+      tags:
+      - Marcas
   /api/v1/productos:
     get:
       description: "Lista paginada. `page` empieza en 0; `size` va de 1 a 100 (20\
@@ -948,6 +1336,18 @@ components:
           type: boolean
       required:
       - activo
+    CambioEstadoCatalogo:
+      type: object
+      description: Estado nuevo de una marca o categoría.
+      properties:
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+          example: INACTIVO
+      required:
+      - estado
     CambioRoles:
       type: object
       properties:
@@ -962,6 +1362,55 @@ components:
           uniqueItems: true
       required:
       - roles
+    ElementoCatalogo:
+      type: object
+      description: Marca o categoría con su estado.
+      properties:
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+          example: ACTIVO
+        id:
+          type: integer
+          format: int64
+          example: 1
+        nombre:
+          type: string
+          example: Stanley
+    ElementoCatalogoPeticion:
+      type: object
+      description: Nombre de una marca o categoría (RF-CFG-001).
+      properties:
+        nombre:
+          type: string
+          description: Nombre único sin distinguir mayúsculas; se recortan los espacios
+            de los extremos.
+          example: Stanley
+          maxLength: 100
+          minLength: 2
+      required:
+      - nombre
+    PaginaElementoCatalogo:
+      type: object
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: "#/components/schemas/ElementoCatalogo"
+        pagina:
+          type: integer
+          format: int32
+        tamano:
+          type: integer
+          format: int32
+        totalElementos:
+          type: integer
+          format: int64
+        totalPaginas:
+          type: integer
+          format: int32
     PaginaProductoRespuesta:
       type: object
       properties:
@@ -1084,7 +1533,7 @@ components:
         categoriaId:
           type: integer
           format: int64
-          description: Id de una categoría activa (GET /api/v1/categorias).
+          description: Id de una categoría activa (GET /api/v1/categorias/activas).
           example: 1
         control:
           type: string
@@ -1110,7 +1559,7 @@ components:
         marcaId:
           type: integer
           format: int64
-          description: Id de una marca activa (GET /api/v1/marcas).
+          description: Id de una marca activa (GET /api/v1/marcas/activas).
           example: 1
         nombre:
           type: string

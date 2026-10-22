@@ -9,6 +9,7 @@ import { Navigate, Route, Routes } from 'react-router';
 
 import AppLayout from './components/AppLayout.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import CatalogosPage from './pages/CatalogosPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import ProductosPage from './pages/ProductosPage.jsx';
@@ -36,6 +37,14 @@ export default function RutasApp() {
           element={
             <ProtectedRoute permiso="CATALOGO_CONSULTAR">
               <ProductosPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="catalogos"
+          element={
+            <ProtectedRoute permiso="CONFIG_GESTIONAR">
+              <CatalogosPage />
             </ProtectedRoute>
           }
         />
