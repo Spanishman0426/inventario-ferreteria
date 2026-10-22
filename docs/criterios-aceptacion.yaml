@@ -1,10 +1,10 @@
 # Nombre: criterios-aceptacion.yaml
 # Descripción: Catálogo de criterios de aceptación de los requisitos implementados (RF-PRO-001,
-#              RF-PRO-003, RF-CFG-001, RF-SEG-001, RF-SEG-002) y de los RNF de seguridad, eficiencia,
+#              RF-PRO-003, RF-TER-001, RF-CFG-001, RF-SEG-001, RF-SEG-002) y de los RNF de seguridad, eficiencia,
 #              interacción y mantenibilidad que aplican, con sus casos de prueba por nivel y los escenarios
 #              E2E que los cubren. Fuente de docs/pruebas/casos-de-prueba.md y de scripts/criterios.mjs.
 # Fecha de creación: 2026-10-20
-# Última actualización: 2026-10-21
+# Última actualización: 2026-10-22
 # Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
 #
 # Convenciones
@@ -195,6 +195,120 @@ criterios:
         datos: Tres productos "E2E ... <sello>" en dos categorías.
         esperado: Solo aparecen los que cumplen todos los filtros; sin coincidencias se muestra el aviso de sin resultados.
 
+  # ------------------------------------------------------------------ RF-TER-001 Registrar clientes y proveedores
+  - id: CA-RF-TER-001-1
+    requisito: RF-TER-001
+    descripcion: Se registra una persona natural con cédula, nombre y apellido, y una jurídica con NIT y razón social.
+    niveles: [unitaria, integracion, e2e]
+    e2e: [E2E-13, E2E-14]
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Validar TerceroPeticion con TerceroCoherente y llamar a TerceroService.crear con el repositorio simulado (backend).
+          - Llenar TerceroFormDialog como persona natural y como jurídica, y validar terceroSchema (frontend, servicio simulado).
+        datos: Natural CC 1075234567 "  Ana " "Rojas"; jurídica NIT 890903938-8 Bancolombia S.A.; natural sin nombre; jurídica sin razón social o con CC.
+        esperado: >-
+          Las dos válidas se guardan con textos recortados y sin los campos que no aplican (razón social en la natural;
+          nombre y apellido en la jurídica). Al elegir persona jurídica el formulario cambia a NIT y razón social. Sin
+          nombre, apellido o razón social, o una jurídica con CC: error en ese campo y no se envía.
+      - nivel: integracion
+        pasos:
+          - Como vendedor, POST /api/v1/terceros con una persona natural; GET /api/v1/terceros/{id}.
+          - Como comprador, POST con una persona jurídica proveedora; consultar la fila en la base.
+        datos: Cédula de 10 dígitos y NIT de 9 dígitos aleatorios, con el dígito calculado por DigitoVerificacionNit.
+        esperado: 201 en ambos; la natural vuelve con nombre mostrado "Ana Rojas" y sin dígito; la jurídica queda con su dígito y razón social, sin nombre.
+      - nivel: e2e
+        pasos:
+          - Persona natural (E2E-13). Como vendedor, abrir Terceros desde el menú, crear con cédula, nombre, apellido, dirección y teléfono; buscar por cédula.
+          - Persona jurídica (E2E-14). Como administrador, elegir Persona jurídica, escribir el NIT, razón social y contacto; guardar y buscar por NIT.
+        datos: Cédula y NIT únicos por ejecución (e2e/comun/datos.js), con el dígito calculado aparte.
+        esperado: >-
+          Notificación de registro; la natural aparece como "CC <número>" con el rol Cliente; la jurídica oculta nombre y
+          apellido, fija NIT, calcula el dígito en vivo y aparece como "NIT <número>-<dígito>".
+
+  - id: CA-RF-TER-001-2
+    requisito: RF-TER-001
+    descripcion: Un mismo tercero puede marcarse como cliente y proveedor.
+    niveles: [unitaria, integracion, e2e]
+    e2e: [E2E-14]
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Validar y crear un tercero con esCliente y esProveedor en TerceroService con los dos permisos (backend).
+          - Marcar las dos casillas en TerceroFormDialog como administrador y validar terceroSchema (frontend).
+        datos: Jurídica NIT 890903938-8 con los dos roles; tercero sin ningún rol.
+        esperado: El servicio lo guarda con los dos roles; el formulario deja marcar ambas casillas; sin ningún rol, error "Marque al menos un rol".
+      - nivel: integracion
+        pasos:
+          - Como gerente, POST /api/v1/terceros con esCliente y esProveedor en true.
+          - Buscar con q = NIT y rol = CLIENTE, y con rol = PROVEEDOR.
+        datos: NIT aleatorio con su dígito.
+        esperado: 201; el tercero aparece con los dos filtros de rol y la fila tiene es_cliente y es_proveedor en true.
+      - nivel: e2e
+        pasos:
+          - Como administrador, crear una persona jurídica con Cliente (marcado por defecto) y marcar Proveedor (E2E-14).
+        datos: NIT único por ejecución.
+        esperado: Las dos casillas quedan marcadas y la fila muestra los roles Cliente y Proveedor.
+
+  - id: CA-RF-TER-001-3
+    requisito: RF-TER-001
+    descripcion: Se rechaza una identificación duplicada o un NIT con dígito de verificación incorrecto.
+    niveles: [unitaria, integracion, e2e]
+    e2e: [E2E-15, E2E-16]
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Calcular DigitoVerificacionNit (backend) y calcularDigitoVerificacion de src/utils/nit.js (frontend) con NIT reales.
+          - Validar un NIT con dígito erróneo (TerceroCoherente, terceroSchema, TerceroFormDialog) y crear un duplicado en TerceroService.
+          - En TerceroFormDialog, simular un 409 del servicio.
+        datos: 890903938-8, 899999068-1 y 800197268-4 (y los NIT de los datos de prueba); dígito 3 en lugar de 8; CC 1075234567 repetida.
+        esperado: >-
+          Los dos algoritmos dan 8, 1 y 4. Un dígito distinto es error en digitoVerificacion con el dígito correcto; el
+          duplicado lanza ConflictoException; el 409 se muestra bajo el número de identificación.
+      - nivel: integracion
+        pasos:
+          - POST /api/v1/terceros con el NIT de Distribuidora Pavco (900123456-8, datos de prueba).
+          - POST con un NIT nuevo y un dígito incorrecto; PUT de un tercero con la cédula de otro.
+          - Capa web (TerceroControllerWebTests). POST con dígito erróneo, en español e inglés.
+        datos: NIT 900123456; NIT aleatorio con dígito + 1; CC 1075234567 de Juan Pérez Gómez.
+        esperado: >-
+          409 CONFLICTO_UNICIDAD "Ya existe un tercero con identificación NIT 900123456."; 400 en digitoVerificacion
+          "no corresponde al NIT; el dígito correcto es 8" sin crear la fila; la misma cifra con CC sí se registra.
+      - nivel: e2e
+        pasos:
+          - Dígito incorrecto (E2E-15). Como administrador, escribir un NIT, cambiar el dígito calculado por otro y guardar; enviar lo mismo por API.
+          - Duplicado (E2E-16). Como vendedor, registrar una persona natural con la cédula de Juan Pérez Gómez.
+        datos: NIT único con dígito + 1; CC 1075234567.
+        esperado: >-
+          El formulario muestra "No corresponde al NIT; el dígito correcto es <d>." bajo el dígito, sigue abierto y la API
+          responde 400 (el NIT no queda registrado). El duplicado muestra la causa del servidor bajo el número.
+
+  - id: CA-RF-TER-001-4
+    requisito: RF-TER-001
+    descripcion: El tercero Consumidor final existe desde la instalación y no puede editarse ni eliminarse.
+    niveles: [unitaria, integracion, e2e]
+    e2e: [E2E-13]
+    casos:
+      - nivel: unitaria
+        pasos:
+          - Llamar a TerceroService.actualizar y cambiarEstado con el Consumidor final y todos los permisos (backend).
+          - Abrir el Consumidor final en TerceroFormDialog y listarlo en TercerosPage como administrador (frontend).
+        datos: Tercero con esConsumidorFinal = true (CC 222222222222).
+        esperado: >-
+          OperacionRechazadaException REGLA_NEGOCIO tercero.consumidor_final_no_editable sin guardar; el formulario se abre
+          en solo lectura con el motivo y sin Guardar; la tabla lo marca Predefinido sin editar ni desactivar.
+      - nivel: integracion
+        pasos:
+          - Buscar q = 222222222222; PUT y PATCH .../estado sobre el id 1; DELETE /api/v1/terceros/1.
+          - Capa web. Mensaje del 422 en español e inglés.
+        datos: Consumidor final sembrado por V1.
+        esperado: Aparece con esConsumidorFinal true; PUT y PATCH responden 422 REGLA_NEGOCIO con mensaje claro; DELETE 405; la fila no cambia y no se audita nada.
+      - nivel: e2e
+        pasos:
+          - Como vendedor, buscar 222222222222 en Terceros y abrirlo (E2E-13).
+        datos: Consumidor final.
+        esperado: Chip Predefinido, sin botones de editar ni desactivar; se abre en solo lectura sin Guardar.
+
   # ------------------------------------------------------------------ RF-CFG-001 Configuración y catálogos
   - id: CA-RF-CFG-001-3
     requisito: RF-CFG-001
@@ -288,18 +402,22 @@ criterios:
     requisito: RF-SEG-001
     descripcion: Un usuario sin permiso no ejecuta la operación, ni por interfaz ni por API.
     niveles: [unitaria, integracion, e2e]
-    e2e: [E2E-08, E2E-12]
+    e2e: [E2E-08, E2E-12, E2E-17]
     casos:
       - nivel: unitaria
         pasos:
           - Renderizar ProtectedRoute, ProductosPage y CatalogosPage con un usuario sin el permiso.
-        datos: Usuario sin CATALOGO_EDITAR o sin CONFIG_GESTIONAR.
-        esperado: No se muestra la acción, la entrada del menú ni la página; se redirige o se avisa acceso denegado.
+          - Terceros. TercerosPage y TerceroFormDialog con permisos de vendedor, comprador y jefe; TerceroService con un solo permiso de terceros.
+        datos: Usuario sin CATALOGO_EDITAR o sin CONFIG_GESTIONAR; vendedor (solo clientes), comprador (solo proveedores) y jefe (sin terceros).
+        esperado: >-
+          No se muestra la acción, la entrada del menú ni la página; se redirige o se avisa acceso denegado. En terceros,
+          la casilla del rol sin permiso está deshabilitada, un tercero de ese rol se abre en solo lectura y el servicio
+          lanza AccessDeniedException al crear, editar (roles actuales y nuevos) o desactivar.
       - nivel: integracion
         pasos:
           - Recorrer cada endpoint de /api con el token de cada uno de los 6 roles (MatrizPermisosIntegracionTests).
           - Comprobar en la base que una operación denegada no deja rastro.
-        datos: 28 endpoints × 6 roles con cuerpos válidos; productos, usuarios, marcas y categorías creados para cada caso.
+        datos: 33 endpoints × 6 roles con cuerpos válidos; productos, usuarios, marcas, categorías y terceros creados para cada caso.
         esperado: 2xx si la matriz 2.2 da el permiso; si no, 403 ACCESO_DENEGADO sin registro de auditoría.
       - nivel: e2e
         pasos:
@@ -313,6 +431,12 @@ criterios:
           - Llamar a la API de crear y desactivar marcas con su token.
         datos: Usuario vendedor.
         esperado: No ve la entrada Catálogos; la ruta muestra acceso denegado; la API responde 403.
+      - nivel: e2e
+        pasos:
+          - Entrar como vendedor a Terceros; abrir un tercero nuevo y el proveedor Distribuidora Pavco (E2E-17).
+          - Llamar a la API de crear un proveedor y desactivar Pavco con su token.
+        datos: Usuario vendedor; proveedor id 2 de los datos de prueba.
+        esperado: Casilla Proveedor deshabilitada con el motivo; Pavco solo tiene Ver y se abre en solo lectura; la API responde 403.
 
   - id: CA-RF-SEG-001-3
     requisito: RF-SEG-001
