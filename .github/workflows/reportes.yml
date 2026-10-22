@@ -1,0 +1,204 @@
+# Nombre: reportes.yml
+# Descripción: Reportes de seguimiento del proyecto. Cada lunes y a demanda ejecuta scripts/reporte-pendientes.mjs
+#              (issues abiertos, criterios en FALLA o SIN PRUEBA del último reporte de criterios de main y marcas
+#              TODO/FIXME) y scripts/reporte-cambios.mjs (cambios por integrante de la última semana y del total
+#              del proyecto, con .mailmap). Publica ambos en el Job Summary, los guarda como artefacto y actualiza
+#              el issue fijo "Reporte semanal" (etiqueta reporte-semanal).
+# Fecha de creación: 2026-10-21
+# Última actualización: 2026-10-21
+# Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
+
+name: Reportes
+
+on:
+  schedule:
+    # Lunes a las 12:00 UTC = 7:00 en Bogotá
+    - cron: '0 12 * * 1'
+  workflow_dispatch:
+    inputs:
+      desde:
+        description: 'Inicio del rango del reporte de cambios (AAAA-MM-DD; vacío = hace 6 días)'
+        required: false
+        default: ''
+      hasta:
+        description: 'Fin del rango del reporte de cambios (AAAA-MM-DD; vacío = hoy)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+# Dos ejecuciones seguidas se turnan para no crear dos issues de reporte
+concurrency:
+  group: reportes
+  cancel-in-progress: false
+
+jobs:
+  reportes:
+    name: Reportes de seguimiento
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read # artefacto criterios de la última CI de main
+      issues: write # leer issues abiertos y actualizar el issue "Reporte semanal"
+    steps:
+      - name: Descargar el repositorio con historial
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Instalar Node LTS con caché de npm
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+
+      - name: Instalar dependencias de los scripts
+        working-directory: scripts
+        run: npm ci
+
+      - name: Buscar la última ejecución de main con reporte de criterios
+        id: base
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+              owner, repo, branch: 'main', status: 'completed', per_page: 30,
+            });
+            const corridas = data.workflow_runs.filter((r) => r.path === '.github/workflows/ci.yml');
+            for (const corrida of corridas) {
+              const { data: artefactos } = await github.rest.actions.listWorkflowRunArtifacts({
+                owner, repo, run_id: corrida.id, name: 'criterios',
+              });
+              if (artefactos.artifacts.some((a) => !a.expired)) {
+                core.setOutput('run_id', String(corrida.id));
+                core.setOutput('run_url', corrida.html_url);
+                core.notice(`Criterios de la ejecución #${corrida.run_number} de main (${corrida.head_sha.substring(0, 7)}).`);
+                return;
+              }
+            }
+            core.notice('No hay una ejecución de main con reporte de criterios.');
+
+      - name: Descargar el reporte de criterios de main
+        if: ${{ steps.base.outputs.run_id != '' }}
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: criterios
+          path: base-criterios
+          run-id: ${{ steps.base.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Generar el reporte de pendientes
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/reporte-pendientes.mjs --criterios base-criterios/criterios.json
+
+      - name: Generar el reporte de cambios
+        env:
+          DESDE: ${{ inputs.desde }}
+          HASTA: ${{ inputs.hasta }}
+        run: |
+          set -euo pipefail
+          argumentos=()
+          [ -n "${DESDE:-}" ] && argumentos+=(--desde "$DESDE")
+          [ -n "${HASTA:-}" ] && argumentos+=(--hasta "$HASTA")
+          node scripts/reporte-cambios.mjs "${argumentos[@]}"
+
+      - name: Publicar en el Job Summary
+        env:
+          CRITERIOS_URL: ${{ steps.base.outputs.run_url }}
+        run: |
+          {
+            cat reportes/seguimiento/pendientes.md
+            [ -n "${CRITERIOS_URL:-}" ] && printf '\nReporte de criterios tomado de [esta ejecución de CI](%s).\n' "$CRITERIOS_URL"
+            echo ""
+            cat reportes/seguimiento/cambios.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar los reportes como artefacto
+        uses: actions/upload-artifact@v7
+        with:
+          name: reportes-seguimiento
+          path: reportes/seguimiento/
+          retention-days: 90
+
+      - name: Actualizar el issue "Reporte semanal"
+        uses: actions/github-script@v9
+        env:
+          CRITERIOS_URL: ${{ steps.base.outputs.run_url }}
+        with:
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const ETIQUETA = 'reporte-semanal';
+            const MARCA = '<!-- reporte-semanal -->';
+            const TITULO = 'Reporte semanal';
+            // Límite de GitHub para el cuerpo de un issue: 65.536 caracteres
+            const LIMITE = 65000;
+
+            const urlEjecucion = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const fecha = new Intl.DateTimeFormat('es-CO', {
+              timeZone: 'America/Bogota', dateStyle: 'full', timeStyle: 'short',
+            }).format(new Date());
+            const criterios = process.env.CRITERIOS_URL
+              ? ` Criterios tomados de [esta ejecución de CI](${process.env.CRITERIOS_URL}).` : '';
+            const encabezado = [
+              MARCA,
+              `_Actualizado el ${fecha} por [${context.workflow} #${context.runNumber}](${urlEjecucion}).${criterios} ` +
+                'Este issue se reescribe en cada ejecución; los reportes anteriores están en los artefactos ' +
+                '`reportes-seguimiento` de cada ejecución._',
+              '',
+            ].join('\n');
+            let cuerpo = [
+              encabezado,
+              fs.readFileSync('reportes/seguimiento/pendientes.md', 'utf8'),
+              '',
+              fs.readFileSync('reportes/seguimiento/cambios.md', 'utf8'),
+            ].join('\n');
+            if (cuerpo.length > LIMITE) {
+              const aviso = `\n\n…recortado. El reporte completo está en el Job Summary y en el artefacto ` +
+                `\`reportes-seguimiento\` de [la ejecución](${urlEjecucion}).`;
+              cuerpo = cuerpo.slice(0, LIMITE - aviso.length) + aviso;
+            }
+
+            // Etiqueta del issue (se crea la primera vez)
+            try {
+              await github.rest.issues.getLabel({ owner, repo, name: ETIQUETA });
+            } catch {
+              await github.rest.issues.createLabel({
+                owner, repo, name: ETIQUETA, color: '0e8a16',
+                description: 'Issue fijo con los reportes semanales de pendientes y cambios',
+              });
+            }
+
+            // Se busca el issue por su marca, abierto o cerrado, para no duplicarlo
+            const existentes = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'all', labels: ETIQUETA, per_page: 100,
+            });
+            const issue = existentes.find((i) => !i.pull_request && (i.body ?? '').includes(MARCA));
+            let numero;
+            let nodeId;
+            if (issue) {
+              await github.rest.issues.update({
+                owner, repo, issue_number: issue.number, title: TITULO, body: cuerpo, state: 'open',
+              });
+              numero = issue.number;
+              nodeId = issue.node_id;
+              core.notice(`Se actualizó el issue #${numero}.`);
+            } else {
+              const { data } = await github.rest.issues.create({ owner, repo, title: TITULO, body: cuerpo, labels: [ETIQUETA] });
+              numero = data.number;
+              nodeId = data.node_id;
+              core.notice(`Se creó el issue #${numero}.`);
+            }
+
+            // Fijarlo en la pestaña Issues; si el token no tiene permiso, solo se avisa
+            try {
+              await github.graphql('mutation($id: ID!) { pinIssue(input: {issueId: $id}) { issue { number } } }', { id: nodeId });
+            } catch (error) {
+              core.info(`No se pudo fijar el issue #${numero} (puede fijarse a mano): ${error.message}`);
+            }
