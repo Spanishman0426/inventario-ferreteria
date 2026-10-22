@@ -1,6 +1,11 @@
 {
   "app": { "titulo": "Hardware Store Inventory" },
-  "menu": { "productos": "Products", "catalogos": "Catalogs", "navegacion": "Main navigation" },
+  "menu": {
+    "productos": "Products",
+    "catalogos": "Catalogs",
+    "terceros": "Third parties",
+    "navegacion": "Main navigation"
+  },
   "idioma": { "seleccionar": "Change language", "es": "Español", "en": "English" },
   "sesion": {
     "salir": "Sign out",

@@ -3,7 +3,7 @@
  * Descripción: Page Object de la barra superior de las páginas con sesión y del selector de idioma
  *              (que también aparece en el login) para Selenium WebDriver.
  * Fecha de creación: 2026-10-21
- * Última actualización: 2026-10-21
+ * Última actualización: 2026-10-22
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 import { clic, esperarAusente, porTestId } from '../support/esperas.js';
@@ -14,6 +14,8 @@ export const BARRA = {
   menuProductos: porTestId('menu-productos'),
   /** Entrada del menú que solo ve quien tiene CONFIG_GESTIONAR. */
   menuCatalogos: porTestId('menu-catalogos'),
+  /** Entrada del menú que ve quien tiene TERCERO_CLIENTE_EDITAR o TERCERO_PROVEEDOR_EDITAR. */
+  menuTerceros: porTestId('menu-terceros'),
   selectorIdioma: porTestId('idioma-selector'),
   salir: porTestId('sesion-salir'),
   confirmarSalir: porTestId('sesion-salir-confirmacion-aceptar'),

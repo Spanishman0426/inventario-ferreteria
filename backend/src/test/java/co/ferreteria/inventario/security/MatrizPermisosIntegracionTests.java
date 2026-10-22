@@ -4,7 +4,7 @@
  *              cada uno de los 6 roles (y sin token) y comprueba 2xx, 403 o 401; además verifica que la
  *              matriz cubra todos los endpoints publicados.
  * Fecha de creación: 2026-10-21
- * Última actualización: 2026-10-21
+ * Última actualización: 2026-10-22
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 package co.ferreteria.inventario.security;
@@ -69,6 +69,12 @@ class MatrizPermisosIntegracionTests extends PruebaIntegracionApi {
 	/** Matriz 2.2, fila "Usuarios, roles y configuración" (catálogos de RF-CFG-001: CONFIG_GESTIONAR). */
 	private static final Set<String> CONFIGURACION = Set.of("admin");
 
+	/** Matriz 2.2, fila "Registrar terceros": consulta con cualquiera de los dos permisos de terceros. */
+	private static final Set<String> TERCEROS_CONSULTA = Set.of("admin", "gerente", "comprador", "vendedor");
+
+	/** Matriz 2.2, fila "Registrar terceros", columna de clientes. */
+	private static final Set<String> TERCEROS_CLIENTES = Set.of("admin", "gerente", "vendedor");
+
 	/** Única ruta de la API que no exige token (RNF-SEG-001). */
 	private static final String LOGIN = "POST /api/v1/auth/login";
 
@@ -91,6 +97,8 @@ class MatrizPermisosIntegracionTests extends PruebaIntegracionApi {
 		MARCA,
 		/** Una categoría nueva creada para el caso. */
 		CATEGORIA,
+		/** Un tercero cliente (persona natural) creado para el caso. */
+		TERCERO,
 		/** El último registro de auditoría. */
 		AUDITORIA
 	}
@@ -113,6 +121,11 @@ class MatrizPermisosIntegracionTests extends PruebaIntegracionApi {
 		CATEGORIAS_CREAR(HttpMethod.POST, "/api/v1/categorias", CONFIGURACION, Objetivo.NINGUNO),
 		CATEGORIAS_EDITAR(HttpMethod.PUT, "/api/v1/categorias/{id}", CONFIGURACION, Objetivo.CATEGORIA),
 		CATEGORIAS_ESTADO(HttpMethod.PATCH, "/api/v1/categorias/{id}/estado", CONFIGURACION, Objetivo.CATEGORIA),
+		TERCEROS_LISTAR(HttpMethod.GET, "/api/v1/terceros", TERCEROS_CONSULTA, Objetivo.NINGUNO),
+		TERCEROS_OBTENER(HttpMethod.GET, "/api/v1/terceros/{id}", TERCEROS_CONSULTA, Objetivo.TERCERO),
+		TERCEROS_CREAR(HttpMethod.POST, "/api/v1/terceros", TERCEROS_CLIENTES, Objetivo.NINGUNO),
+		TERCEROS_EDITAR(HttpMethod.PUT, "/api/v1/terceros/{id}", TERCEROS_CLIENTES, Objetivo.TERCERO),
+		TERCEROS_ESTADO(HttpMethod.PATCH, "/api/v1/terceros/{id}/estado", TERCEROS_CLIENTES, Objetivo.TERCERO),
 		UNIDADES_MEDIDA(HttpMethod.GET, "/api/v1/unidades-medida", TODOS, Objetivo.NINGUNO),
 		TARIFAS_IVA(HttpMethod.GET, "/api/v1/tarifas-iva", TODOS, Objetivo.NINGUNO),
 		AUDITORIA_LISTAR(HttpMethod.GET, "/api/v1/auditoria", AUDITORIA, Objetivo.NINGUNO),
@@ -164,6 +177,11 @@ class MatrizPermisosIntegracionTests extends PruebaIntegracionApi {
 				case MARCAS_CREAR, CATEGORIAS_CREAR -> "{\"nombre\":\"Matriz %s\"}".formatted(unico);
 				case MARCAS_EDITAR, CATEGORIAS_EDITAR -> "{\"nombre\":\"Matriz editada %s\"}".formatted(unico);
 				case MARCAS_ESTADO, CATEGORIAS_ESTADO -> "{\"estado\":\"INACTIVO\"}";
+				case TERCEROS_CREAR, TERCEROS_EDITAR -> """
+						{"tipoPersona":"NATURAL","tipoIdentificacion":"CC","numeroIdentificacion":"%s",
+						 "nombre":"Matriz","apellido":"%s","direccion":"Neiva","telefono":"3001234567",
+						 "esCliente":true}""".formatted(cedula(unico), unico);
+				case TERCEROS_ESTADO -> "{\"estado\":\"INACTIVO\"}";
 				case USUARIOS_CONTRASENA -> "{\"contrasena\":\"Nueva12345\"}";
 				default -> null;
 			};
@@ -264,9 +282,24 @@ class MatrizPermisosIntegracionTests extends PruebaIntegracionApi {
 					"Objetivo matriz " + unico);
 			case CATEGORIA -> jdbc.queryForObject("INSERT INTO categoria (nombre) VALUES (?) RETURNING id", Long.class,
 					"Objetivo matriz " + unico);
+			case TERCERO -> jdbc.queryForObject("""
+					INSERT INTO tercero (tipo_persona, tipo_identificacion, numero_identificacion, nombre, apellido,
+					                     direccion, telefono, es_cliente)
+					VALUES ('NATURAL', 'CC', ?, 'Objetivo', 'Matriz', 'Neiva', '3001234567', true) RETURNING id
+					""", Long.class, "1" + cedula(unico));
 			case AUDITORIA -> ultimoIdAuditoria();
 		};
 		return id == null ? 0 : id;
+	}
+
+	/**
+	 * Cédula de 10 dígitos derivada del sufijo único (los terceros no se borran entre casos).
+	 *
+	 * @param unico sufijo aleatorio del caso
+	 * @return número de 10 dígitos
+	 */
+	private static String cedula(String unico) {
+		return String.format("%010d", Math.abs((long) unico.hashCode()));
 	}
 
 	private String bearer(String rol) throws Exception {

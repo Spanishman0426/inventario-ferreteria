@@ -28,6 +28,8 @@ tags:
   name: Marcas
 - description: Unidades de medida y tarifas de IVA para selectores
   name: Catálogos de referencia
+- description: Clientes y proveedores (RF-TER-001)
+  name: Terceros
 - description: Administración del catálogo de categorías (RF-CFG-001)
   name: Categorías
 paths:
@@ -918,6 +920,257 @@ paths:
       summary: Listar tarifas de IVA activas
       tags:
       - Catálogos de referencia
+  /api/v1/terceros:
+    get:
+      description: "Lista paginada que incluye al Consumidor final. `q` busca en el\
+        \ nombre o la razón social (sin distinguir mayúsculas) y al inicio del nú\
+        mero de identificación. `page` empieza en 0; `size` va de 1 a 100 (20 por\
+        \ defecto). `sort` admite `nombre`, `numeroIdentificacion`, `creadoEn` e `id`,\
+        \ con `,asc` o `,desc`; por defecto `nombre,asc`."
+      operationId: listarTerceros
+      parameters:
+      - description: "Nombre, razón social o inicio de la identificación."
+        example: andina
+        in: query
+        name: q
+        required: false
+        schema:
+          type: string
+          maxLength: 150
+          minLength: 0
+      - description: Rol del tercero.
+        in: query
+        name: rol
+        required: false
+        schema:
+          type: string
+          enum:
+          - CLIENTE
+          - PROVEEDOR
+      - description: Tipo de persona.
+        in: query
+        name: tipoPersona
+        required: false
+        schema:
+          type: string
+          enum:
+          - NATURAL
+          - JURIDICA
+      - description: Estado del tercero; sin valor devuelve todos.
+        in: query
+        name: estado
+        required: false
+        schema:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+      - description: Zero-based page index (0..N)
+        in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          default: 0
+          minimum: 0
+      - description: The size of the page to be returned
+        in: query
+        name: size
+        required: false
+        schema:
+          type: integer
+          default: 20
+          minimum: 1
+      - description: "Sorting criteria in the format: property,(asc|desc). Default\
+          \ sort order is ascending. Multiple sort criteria are supported."
+        in: query
+        name: sort
+        required: false
+        schema:
+          type: array
+          default:
+          - "nombre,ASC"
+          items:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginaTercero"
+          description: Página de terceros
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+      security:
+      - bearerAuth: []
+      summary: Buscar terceros
+      tags:
+      - Terceros
+    post:
+      description: "Persona natural: CC o NIT, nombre y apellido. Persona jurídica:\
+        \ solo NIT y razón social. El NIT lleva dígito de verificación correcto. Direcció\
+        n y teléfono (7 a 10 dígitos) son obligatorios; el correo es opcional. Al\
+        \ menos un rol: `esCliente` exige TERCERO_CLIENTE_EDITAR y `esProveedor` TERCERO_PROVEEDOR_EDITAR\
+        \ (403 si falta). La identificación es única por tipo (409). El tercero queda\
+        \ ACTIVO."
+      operationId: crearTercero
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TerceroPeticion"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tercero"
+          description: Creado
+          headers:
+            Location:
+              description: URL del tercero creado
+              schema:
+                type: string
+                format: uri
+                example: /api/v1/terceros/10
+              style: simple
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "409":
+          $ref: "#/components/responses/Error409"
+      security:
+      - bearerAuth: []
+      summary: Registrar tercero
+      tags:
+      - Terceros
+  /api/v1/terceros/{id}:
+    get:
+      description: Devuelve también los terceros INACTIVOS y el Consumidor final.
+      operationId: obtenerTercero
+      parameters:
+      - description: Id del tercero.
+        example: 4
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tercero"
+          description: Tercero
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+      security:
+      - bearerAuth: []
+      summary: Consultar un tercero
+      tags:
+      - Terceros
+    put:
+      description: "Reemplaza todos los campos con las mismas reglas del alta. Exige\
+        \ el permiso de cada rol que el tercero tiene y de cada rol que tendrá. El\
+        \ Consumidor final no se edita (422 REGLA_NEGOCIO). El estado se cambia con\
+        \ PATCH /api/v1/terceros/{id}/estado."
+      operationId: actualizarTercero
+      parameters:
+      - description: Id del tercero.
+        example: 4
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TerceroPeticion"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tercero"
+          description: Actualizado
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "409":
+          $ref: "#/components/responses/Error409"
+        "422":
+          $ref: "#/components/responses/Error422"
+      security:
+      - bearerAuth: []
+      summary: Editar tercero
+      tags:
+      - Terceros
+  /api/v1/terceros/{id}/estado:
+    patch:
+      description: "Los terceros no se eliminan, solo se desactivan. Exige el permiso\
+        \ de cada rol que el tercero tiene. El Consumidor final no se desactiva (422\
+        \ REGLA_NEGOCIO). Es idempotente."
+      operationId: cambiarEstadoTercero
+      parameters:
+      - description: Id del tercero.
+        example: 4
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CambioEstadoTercero"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tercero"
+          description: Estado aplicado
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "403":
+          $ref: "#/components/responses/Error403"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "422":
+          $ref: "#/components/responses/Error422"
+      security:
+      - bearerAuth: []
+      summary: Activar o desactivar tercero
+      tags:
+      - Terceros
   /api/v1/unidades-medida:
     get:
       description: "Las 13 unidades de RN-05, ordenadas por código; `esDiscreta` indica\
@@ -1348,6 +1601,18 @@ components:
           example: INACTIVO
       required:
       - estado
+    CambioEstadoTercero:
+      type: object
+      description: Estado nuevo de un tercero.
+      properties:
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+          example: INACTIVO
+      required:
+      - estado
     CambioRoles:
       type: object
       properties:
@@ -1437,6 +1702,25 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RegistroAuditoriaResumen"
+        pagina:
+          type: integer
+          format: int32
+        tamano:
+          type: integer
+          format: int32
+        totalElementos:
+          type: integer
+          format: int64
+        totalPaginas:
+          type: integer
+          format: int32
+    PaginaTercero:
+      type: object
+      properties:
+        contenido:
+          type: array
+          items:
+            $ref: "#/components/schemas/Tercero"
         pagina:
           type: integer
           format: int32
@@ -1765,6 +2049,159 @@ components:
         porcentaje:
           type: number
           example: 19.0
+    Tercero:
+      type: object
+      description: Cliente o proveedor (RF-TER-001).
+      properties:
+        apellido:
+          type: string
+          example: "null"
+        correo:
+          type: string
+          example: compras@andina.test
+        creadoEn:
+          type: string
+          format: date-time
+          example: 2026-10-22T15:00:00Z
+        digitoVerificacion:
+          type: integer
+          format: int32
+          example: 7
+        direccion:
+          type: string
+          example: "Carrera 5 # 10-30, Neiva"
+        esCliente:
+          type: boolean
+          example: true
+        esConsumidorFinal:
+          type: boolean
+          example: false
+        esProveedor:
+          type: boolean
+          example: false
+        estado:
+          type: string
+          enum:
+          - ACTIVO
+          - INACTIVO
+          example: ACTIVO
+        id:
+          type: integer
+          format: int64
+          example: 4
+        nombre:
+          type: string
+          example: "null"
+        nombreMostrado:
+          type: string
+          example: Constructora Andina S.A.S.
+        numeroIdentificacion:
+          type: string
+          example: "900987654"
+        razonSocial:
+          type: string
+          example: Constructora Andina S.A.S.
+        telefono:
+          type: string
+          example: "3001234567"
+        tipoIdentificacion:
+          type: string
+          enum:
+          - CC
+          - NIT
+          example: NIT
+        tipoPersona:
+          type: string
+          enum:
+          - NATURAL
+          - JURIDICA
+          example: JURIDICA
+    TerceroPeticion:
+      type: object
+      description: Datos para crear o reemplazar un tercero (RF-TER-001).
+      properties:
+        apellido:
+          type: string
+          description: Apellido; obligatorio para persona natural.
+          example: Pérez Gómez
+          maxLength: 100
+          minLength: 0
+        correo:
+          type: string
+          format: email
+          description: Correo; necesario para enviar facturas por correo.
+          example: compras@andina.co
+          maxLength: 150
+          minLength: 0
+        digitoVerificacion:
+          type: integer
+          format: int32
+          description: "Dígito de verificación; obligatorio y correcto con NIT, vací\
+            o con CC."
+          example: 8
+          maximum: 9
+          minimum: 0
+        direccion:
+          type: string
+          description: Dirección de contacto.
+          example: "Carrera 5 # 10-30, Neiva"
+          maxLength: 200
+          minLength: 0
+        esCliente:
+          type: boolean
+          description: "Tiene rol de cliente; exige TERCERO_CLIENTE_EDITAR. Si se\
+            \ omite, false."
+          example: true
+        esProveedor:
+          type: boolean
+          description: "Tiene rol de proveedor; exige TERCERO_PROVEEDOR_EDITAR. Si\
+            \ se omite, false."
+          example: false
+        nombre:
+          type: string
+          description: Nombre; obligatorio para persona natural.
+          example: Juan
+          maxLength: 100
+          minLength: 0
+        numeroIdentificacion:
+          type: string
+          description: Número sin dígito de verificación ni separadores; único por
+            tipo.
+          example: "890903938"
+          minLength: 1
+          pattern: "|[0-9]{5,15}"
+        razonSocial:
+          type: string
+          description: Razón social; obligatoria para persona jurídica.
+          example: Bancolombia S.A.
+          maxLength: 150
+          minLength: 0
+        telefono:
+          type: string
+          description: Teléfono de 7 a 10 dígitos.
+          example: "3001234567"
+          minLength: 1
+          pattern: "|[0-9]{7,10}"
+        tipoIdentificacion:
+          type: string
+          description: Tipo de identificación; la persona jurídica solo admite NIT.
+          enum:
+          - CC
+          - NIT
+          example: NIT
+        tipoPersona:
+          type: string
+          description: Tipo de persona.
+          enum:
+          - NATURAL
+          - JURIDICA
+          example: JURIDICA
+      required:
+      - direccion
+      - numeroIdentificacion
+      - telefono
+      - tipoIdentificacion
+      - tipoPersona
     UnidadMedida:
       type: object
       description: Unidad base (RN-05); las discretas solo admiten enteros.

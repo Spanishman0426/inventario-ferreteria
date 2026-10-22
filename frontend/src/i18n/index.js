@@ -3,7 +3,7 @@
  * Descripción: Configuración de i18next: español por defecto, inglés como segundo idioma y
  *              elección del usuario recordada en localStorage (RNF-INT-003).
  * Fecha de creación: 2026-10-21
- * Última actualización: 2026-10-21
+ * Última actualización: 2026-10-22
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 import i18n from 'i18next';
@@ -15,12 +15,14 @@ import catalogosEs from './locales/es/catalogos.json';
 import comunEs from './locales/es/comun.json';
 import erroresEs from './locales/es/errores.json';
 import productosEs from './locales/es/productos.json';
+import tercerosEs from './locales/es/terceros.json';
 import validacionEs from './locales/es/validacion.json';
 import authEn from './locales/en/auth.json';
 import catalogosEn from './locales/en/catalogos.json';
 import comunEn from './locales/en/comun.json';
 import erroresEn from './locales/en/errores.json';
 import productosEn from './locales/en/productos.json';
+import tercerosEn from './locales/en/terceros.json';
 import validacionEn from './locales/en/validacion.json';
 
 /** Idiomas que ofrece la interfaz; el primero es el predeterminado. */
@@ -57,6 +59,7 @@ i18n
         catalogos: catalogosEs,
         errores: erroresEs,
         productos: productosEs,
+        terceros: tercerosEs,
         validacion: validacionEs,
       },
       en: {
@@ -65,10 +68,11 @@ i18n
         catalogos: catalogosEn,
         errores: erroresEn,
         productos: productosEn,
+        terceros: tercerosEn,
         validacion: validacionEn,
       },
     },
-    ns: ['comun', 'auth', 'productos', 'catalogos', 'errores', 'validacion'],
+    ns: ['comun', 'auth', 'productos', 'catalogos', 'terceros', 'errores', 'validacion'],
     defaultNS: 'comun',
     supportedLngs: IDIOMAS,
     fallbackLng: IDIOMA_POR_DEFECTO,

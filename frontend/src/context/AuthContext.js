@@ -3,7 +3,7 @@
  * Descripción: Contexto de React con la sesión del usuario (usuario, permisos, login y logout).
  *              El proveedor está en AuthProvider.jsx y se consume con el hook useAuth.
  * Fecha de creación: 2026-10-21
- * Última actualización: 2026-10-21
+ * Última actualización: 2026-10-22
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 import { createContext } from 'react';
@@ -19,7 +19,8 @@ import { createContext } from 'react';
  * @property {boolean} sesionExpirada verdadero si la sesión terminó por vencimiento o por un 401
  * @property {(usuario: string, contrasena: string) => Promise<object>} login inicia sesión
  * @property {() => void} logout cierra la sesión
- * @property {(permiso: string) => boolean} tienePermiso indica si el usuario tiene un permiso
+ * @property {(permiso: string|string[]) => boolean} tienePermiso indica si el usuario tiene el permiso
+ *           o, si recibe un arreglo, al menos uno de ellos
  */
 
 /** Contexto de autenticación; null fuera de AuthProvider. */

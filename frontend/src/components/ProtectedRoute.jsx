@@ -3,7 +3,7 @@
  * Descripción: Ruta protegida: exige sesión y, opcionalmente, un permiso de la matriz 2.2
  *              (RF-SEG-001, RNF-SEG-002). El servidor vuelve a validar cada operación.
  * Fecha de creación: 2026-10-21
- * Última actualización: 2026-10-21
+ * Última actualización: 2026-10-22
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 import Alert from '@mui/material/Alert';
@@ -20,7 +20,8 @@ import useAuth from '../hooks/useAuth.js';
  * sesión lleva al login recordando la ruta pedida; sin permiso muestra un aviso de acceso denegado.
  *
  * @param {object} props propiedades del componente
- * @param {string} [props.permiso] código de permiso exigido (por ejemplo CATALOGO_CONSULTAR)
+ * @param {string|string[]} [props.permiso] permiso exigido (por ejemplo CATALOGO_CONSULTAR) o lista de
+ *        permisos de la que basta uno
  * @param {import('react').ReactNode} [props.children] contenido; si falta, se usa el Outlet de la ruta
  * @returns {import('react').JSX.Element} contenido protegido, redirección o aviso
  */

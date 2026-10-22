@@ -1,0 +1,81 @@
+{
+  "titulo": "Customers and suppliers",
+  "nuevo": "New third party",
+  "buscar": "Search by name, company name or identification",
+  "sinResultados": "No third parties match the search.",
+  "predefinido": "Predefined",
+  "columnas": {
+    "identificacion": "Identification",
+    "nombre": "Name or company name",
+    "roles": "Roles",
+    "telefono": "Phone",
+    "estado": "Status",
+    "acciones": "Actions"
+  },
+  "filtros": {
+    "rol": "Role",
+    "tipoPersona": "Person type",
+    "estado": "Status",
+    "todos": "All"
+  },
+  "rol": {
+    "CLIENTE": "Customer",
+    "PROVEEDOR": "Supplier"
+  },
+  "tipoPersona": {
+    "NATURAL": "Natural person",
+    "JURIDICA": "Legal entity"
+  },
+  "tipoIdentificacion": {
+    "CC": "Citizenship ID (CC)",
+    "NIT": "NIT (tax ID)"
+  },
+  "estado": {
+    "ACTIVO": "Active",
+    "INACTIVO": "Inactive"
+  },
+  "acciones": {
+    "editar": "Edit {{nombre}}",
+    "ver": "View {{nombre}}",
+    "desactivar": "Deactivate {{nombre}}",
+    "activar": "Activate {{nombre}}",
+    "guardar": "Save",
+    "cerrar": "Close",
+    "confirmarDesactivar": "Deactivate",
+    "confirmarActivar": "Activate"
+  },
+  "formulario": {
+    "tituloCrear": "New third party",
+    "tituloEditar": "Edit third party",
+    "tituloVer": "Third party details",
+    "tipoPersona": "Person type",
+    "tipoIdentificacion": "Identification type",
+    "numeroIdentificacion": "Identification number",
+    "digitoVerificacion": "Check digit",
+    "ayudaDigito": "Calculated as you type the NIT; you can correct it.",
+    "nombre": "First name",
+    "apellido": "Last name",
+    "razonSocial": "Company name",
+    "direccion": "Address",
+    "telefono": "Phone",
+    "correo": "Email (optional)",
+    "roles": "Roles",
+    "esCliente": "Customer",
+    "esProveedor": "Supplier",
+    "sinPermisoRol": "Your role cannot assign the {{rol}} role.",
+    "soloLecturaPermisos": "You can only view this third party: it is a {{roles}} and your role is not allowed to edit third parties of that type.",
+    "soloLecturaConsumidorFinal": "The final consumer is predefined in the system and cannot be edited or deactivated."
+  },
+  "confirmacion": {
+    "desactivarTitulo": "Deactivate the third party?",
+    "desactivarMensaje": "\"{{nombre}}\" keeps its history but becomes inactive.",
+    "activarTitulo": "Activate the third party?",
+    "activarMensaje": "\"{{nombre}}\" will be active again."
+  },
+  "notificaciones": {
+    "creado": "Third party \"{{nombre}}\" registered.",
+    "actualizado": "Third party \"{{nombre}}\" updated.",
+    "desactivado": "Third party \"{{nombre}}\" deactivated.",
+    "activado": "Third party \"{{nombre}}\" activated."
+  }
+}

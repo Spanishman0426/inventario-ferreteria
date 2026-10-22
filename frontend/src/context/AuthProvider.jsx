@@ -3,7 +3,7 @@
  * Descripción: Proveedor de la sesión: inicia y cierra sesión, restaura la sesión guardada al
  *              recargar, la cierra al vencer el token o ante un 401 de la API (RF-SEG-001).
  * Fecha de creación: 2026-10-21
- * Última actualización: 2026-10-21
+ * Última actualización: 2026-10-22
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -97,7 +97,11 @@ export default function AuthProvider({ children }) {
       sesionExpirada,
       login,
       logout,
-      tienePermiso: (permiso) => permisos.includes(permiso),
+      // Con un arreglo basta cualquiera de los permisos (por ejemplo, los dos de terceros).
+      tienePermiso: (permiso) =>
+        Array.isArray(permiso)
+          ? permiso.some((p) => permisos.includes(p))
+          : permisos.includes(permiso),
     };
   }, [usuario, cargando, sesionExpirada, login, logout]);
 

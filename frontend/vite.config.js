@@ -3,7 +3,7 @@
  * Descripción: Configuración de Vite (servidor de desarrollo con proxy HTTPS al backend) y de Vitest,
  *              con cobertura v8 (npm test -- --coverage) y reporte JUnit XML para scripts/criterios.mjs.
  * Fecha de creación: 2026-10-21
- * Última actualización: 2026-10-21
+ * Última actualización: 2026-10-22
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 import { defineConfig, loadEnv } from 'vite';
@@ -34,8 +34,9 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.js'],
       css: false,
       restoreMocks: true,
-      // Los formularios con varios selectores de MUI tardan más de 5 s en jsdom en Windows.
-      testTimeout: 30000,
+      // Los formularios con varios selectores de MUI tardan más de 5 s en jsdom en Windows, y con
+      // todos los archivos en paralelo una prueba que teclea mucho puede pasar de 30 s.
+      testTimeout: 60000,
       // JUnit XML (con el [CA-...] en el nombre) para el reporte de criterios de aceptación
       reporters: ['default', 'junit'],
       outputFile: { junit: './reportes/junit/resultados-frontend.xml' },
