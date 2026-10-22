@@ -3,7 +3,7 @@
  * Descripción: Page Object de la barra superior de las páginas con sesión y del selector de idioma
  *              (que también aparece en el login) para Playwright.
  * Fecha de creación: 2026-10-21
- * Última actualización: 2026-10-21
+ * Última actualización: 2026-10-22
  * Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
  */
 
@@ -18,6 +18,8 @@ export class BarraSuperior {
     this.menuProductos = page.getByTestId('menu-productos');
     /** Entrada del menú que solo ve quien tiene CONFIG_GESTIONAR. */
     this.menuCatalogos = page.getByTestId('menu-catalogos');
+    /** Entrada del menú que ve quien tiene TERCERO_CLIENTE_EDITAR o TERCERO_PROVEEDOR_EDITAR. */
+    this.menuTerceros = page.getByTestId('menu-terceros');
     this.selectorIdioma = page.getByTestId('idioma-selector');
     this.botonSalir = page.getByTestId('sesion-salir');
   }

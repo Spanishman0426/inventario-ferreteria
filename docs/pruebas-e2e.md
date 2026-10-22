@@ -1,16 +1,16 @@
 <!--
   Nombre: pruebas-e2e.md
   Descripción: Guía de las pruebas end-to-end del frontend: entorno docker-compose.e2e.yml, perfil e2e del
-               backend, escenarios E2E-01 a E2E-12 con sus criterios, ejecución en Windows y Linux, y reportes
+               backend, escenarios E2E-01 a E2E-17 con sus criterios, ejecución en Windows y Linux, y reportes
                de Playwright y Selenium WebDriver.
   Fecha de creación: 2026-10-21
-  Última actualización: 2026-10-21
+  Última actualización: 2026-10-22
   Autor: Juan Pablo Artunduaga Pérez (generado con Claude Code)
 -->
 
 # Pruebas end-to-end (E2E)
 
-Los mismos 12 escenarios se automatizan dos veces, con **Playwright** (`e2e/playwright/`) y con **Selenium
+Los mismos 17 escenarios se automatizan dos veces, con **Playwright** (`e2e/playwright/`) y con **Selenium
 WebDriver + Mocha** (`e2e/selenium/`), contra el frontend compilado que levanta `docker-compose.e2e.yml`. Las dos
 suites usan el patrón Page Object y localizan los elementos por `data-testid`.
 
@@ -71,10 +71,18 @@ derivados del flujo principal, la matriz 2.2 o la regla de internacionalización
 | E2E-10 cambio de idioma | CA-RNF-INT-003-D1, CA-RNF-INT-003-1 | Arranca en español (`lang="es"`), moneda `$ 18.000`; en inglés cambian títulos, botones, menú y estados; la elección sobrevive a recargar y a cerrar sesión. |
 | E2E-11 administrar marcas | CA-RF-CFG-001-3, CA-RF-CFG-001-D1 | El administrador crea una marca desde el menú Catálogos; aparece en el selector de marca de un producto nuevo; al desactivarla (cancelar no cambia nada, confirmar la deja Inactiva y sigue listada) ya no aparece en ese selector. |
 | E2E-12 el vendedor no administra catálogos | CA-RF-SEG-001-2 | No ve la entrada Catálogos del menú; `/catalogos` muestra acceso denegado; la API le responde 403 al crear y al desactivar una marca. |
+| E2E-13 crear persona natural | CA-RF-TER-001-1, CA-RF-TER-001-4 | El vendedor abre Terceros desde el menú y registra una persona natural con cédula, nombre y apellido (sin razón social ni dígito); la búsqueda la muestra como `CC <número>` con el rol Cliente. El Consumidor final aparece como Predefinido, sin editar ni desactivar, y se abre en solo lectura. |
+| E2E-14 crear persona jurídica | CA-RF-TER-001-1, CA-RF-TER-001-2 | El administrador elige Persona jurídica: desaparecen nombre y apellido, la identificación queda en NIT y el dígito se calcula al escribir el número. La registra como cliente y proveedor y aparece como `NIT <número>-<dígito>` con los dos roles. |
+| E2E-15 dígito de verificación incorrecto | CA-RF-TER-001-3 | Cambiar el dígito calculado por uno erróneo muestra "No corresponde al NIT; el dígito correcto es <d>." bajo el dígito y no guarda; la API responde 400 y el NIT no queda registrado. |
+| E2E-16 identificación duplicada | CA-RF-TER-001-3 | Registrar la cédula de Juan Pérez Gómez (datos de prueba) muestra bajo el número la causa del 409 del servidor. |
+| E2E-17 el vendedor no puede marcar Proveedor | CA-RF-SEG-001-2 | La casilla Proveedor está deshabilitada con el motivo; el proveedor Distribuidora Pavco solo tiene la acción Ver y se abre en solo lectura con el aviso; la API le responde 403 al registrar un proveedor y al desactivar Pavco. |
 
-**Datos.** Las pruebas no borran nada (productos y marcas solo se desactivan). Cada una crea sus productos y marcas
-con un nombre único (`E2E PW ...` o `E2E SE ...` más un sello de tiempo), y los que necesita de antemano los crea por API
-(`e2e/comun/api.js`), así pueden repetirse sobre la misma base y las dos herramientas no chocan. El código común
+**Datos.** Las pruebas no borran nada (productos, marcas y terceros solo se desactivan). Cada una crea sus productos y
+marcas con un nombre único (`E2E PW ...` o `E2E SE ...` más un sello de tiempo), y los que necesita de antemano los crea
+por API (`e2e/comun/api.js`), así pueden repetirse sobre la misma base y las dos herramientas no chocan. Los terceros
+usan cédulas y NIT aleatorios que empiezan por 3/6 (Playwright) o 4/7 (Selenium); el dígito de verificación lo calcula
+`e2e/comun/datos.js` con el algoritmo de `fn_dv_nit`, aparte del código de la aplicación. E2E-16 y E2E-17 usan terceros
+fijos de los datos de prueba (Juan Pérez Gómez, CC 1075234567, y Distribuidora Pavco, NIT 900123456-8). El código común
 (entorno, datos esperados y cliente de la API) está en `e2e/comun/`.
 
 ## 3. Cómo ejecutar
