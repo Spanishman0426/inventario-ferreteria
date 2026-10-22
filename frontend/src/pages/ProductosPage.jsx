@@ -166,8 +166,10 @@ export default function ProductosPage() {
         )}
       </Stack>
       <Stack
-        direction={{ xs: 'column', md: 'row' }}
+        direction="row"
         spacing={1}
+        useFlexGap
+        sx={{ flexWrap: 'wrap', alignItems: 'stretch' }}
         component="form"
         onSubmit={buscar}
         role="search"
@@ -176,12 +178,14 @@ export default function ProductosPage() {
           label={t('buscar')}
           value={texto}
           onChange={(evento) => setTexto(evento.target.value)}
+          sx={{ flex: '2 1 240px' }}
           slotProps={{ htmlInput: { maxLength: 150, 'data-testid': 'productos-buscar' } }}
         />
         <Button
           type="submit"
           variant="contained"
           startIcon={<SearchIcon />}
+          sx={{ whiteSpace: 'nowrap', flexShrink: 0, minWidth: 'max-content' }}
           data-testid="productos-buscar-boton"
         >
           {t('comun:acciones.buscar')}
@@ -191,7 +195,7 @@ export default function ProductosPage() {
           label={t('filtros.categoria')}
           value={consulta.categoriaId}
           onChange={(evento) => consultar({ categoriaId: evento.target.value, page: 0 })}
-          sx={{ minWidth: 200 }}
+          sx={{ flex: '1 1 200px', minWidth: 200 }}
           slotProps={{
             select: { SelectDisplayProps: { 'data-testid': 'productos-filtro-categoria' } },
           }}
@@ -208,7 +212,7 @@ export default function ProductosPage() {
           label={t('filtros.estado')}
           value={consulta.estado}
           onChange={(evento) => consultar({ estado: evento.target.value, page: 0 })}
-          sx={{ minWidth: 160 }}
+          sx={{ flex: '1 1 160px', minWidth: 160 }}
           slotProps={{
             select: { SelectDisplayProps: { 'data-testid': 'productos-filtro-estado' } },
           }}
